@@ -2,6 +2,8 @@ import "./globals.css";
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { signOut } from "@/app/actions";
+
 export const metadata: Metadata = {
   title: "Personal Job Application OS",
   description: "First-party job discovery, explainable ranking, assisted applications.",
@@ -25,6 +27,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <span className="ml-auto text-xs text-gray-600">
               Every submission requires per-job confirmation
             </span>
+            <form action={signOut}>
+              <button className="text-xs text-gray-500 hover:text-white">Sign out</button>
+            </form>
           </header>
           <main className="p-6 max-w-6xl mx-auto">{children}</main>
         </div>

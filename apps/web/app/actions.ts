@@ -42,3 +42,11 @@ export async function recordPreference(formData: FormData) {
   revalidatePath("/compare");
   revalidatePath("/rankings");
 }
+
+export async function signOut() {
+  const { cookies } = await import("next/headers");
+  const { SESSION_COOKIE } = await import("@/lib/session");
+  const { redirect } = await import("next/navigation");
+  (await cookies()).delete(SESSION_COOKIE);
+  redirect("/login");
+}
