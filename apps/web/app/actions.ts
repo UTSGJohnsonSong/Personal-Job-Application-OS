@@ -26,3 +26,19 @@ export async function queueRemove(formData: FormData) {
   revalidatePath("/queue");
   revalidatePath("/inbox");
 }
+
+export async function recomputeScores() {
+  const { scoring } = await import("@/lib/scoring");
+  await scoring.recompute("internship");
+  revalidatePath("/rankings");
+  revalidatePath("/");
+}
+
+export async function recordPreference(formData: FormData) {
+  const { scoring } = await import("@/lib/scoring");
+  const chosen = String(formData.get("chosen"));
+  const rejected = String(formData.get("rejected"));
+  await scoring.preference(chosen, rejected);
+  revalidatePath("/compare");
+  revalidatePath("/rankings");
+}

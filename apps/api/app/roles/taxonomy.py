@@ -120,14 +120,27 @@ _NONTECH_BODY = [
 
 @dataclass
 class RoleClassification:
+    """Three explicit layers, never collapsed into one opaque label.
+
+    Title rules give stability; JD body gives understanding. A "Data Analyst"
+    doing experimentation and data modelling can be promoted; a "Solutions
+    Engineer" doing pure sales stays demoted. Both directions keep evidence.
+    """
+
     role_type: str
-    band: RoleBand
+    band: RoleBand                      # final category
     confidence: float
+    # --- the three layers ---
+    title_prior_type: str = ""
+    title_prior_band: RoleBand | None = None
+    jd_content_band: RoleBand | None = None
+    jd_content_summary: str = ""
+    adjustment: str = "none"            # promoted | demoted | none
     evidence: list[str] = field(default_factory=list)
     signals_positive: list[str] = field(default_factory=list)
     signals_negative: list[str] = field(default_factory=list)
     needs_review: bool = False
-    technical_density: float = 0.0  # 0..1, drives R3 transferability
+    technical_density: float = 0.0      # 0..1, drives R3/R4 transferability
 
     @property
     def transferability(self) -> float:
@@ -200,18 +213,65 @@ def classify_role(title: str | None, description: str | None = None) -> RoleClas
     for p in nontech_hits[:3]:
         negatives.append(f"body: {p}")
 
-    # 4) Body can DEMOTE a title-based guess: an "engineer" title with sales
-    #    language and no technical content is not a core technical role.
-    if band is RoleBand.R1 and body_l and density < 0.15 and nontech_hits:
-        band = RoleBand.R3
-        role_type = "solutions_engineer"
-        negatives.append("title suggested R1 but body shows non-technical work")
+    # 4) Independent JD-content classification. Depth signals that indicate the
+    #    work is genuinely technical regardless of what the title says.
+    depth_signals = [
+        r"\bexperiment", r"\bdata model", r"\bmodel(l)?ing\b", r"\betl\b",
+        r"\bstatistic", r"\bab test", r"\ba/b test", r"\bwarehouse\b",
+        r"\bschema\b", r"\bquery optimi", r"\bmachine learning\b",
+    ]
+    depth_hits = [p for p in depth_signals if re.search(p, body_l)]
+    if not body_l:
+        jd_band = None
+        jd_summary = "no job description available"
+    elif density >= 0.5 and depth_hits:
+        jd_band = RoleBand.R2
+        jd_summary = f"substantial technical content ({len(tech_hits)} signals, depth work)"
+    elif density >= 0.5:
+        jd_band = RoleBand.R1
+        jd_summary = f"heavy technical content ({len(tech_hits)} signals)"
+    elif density >= 0.25:
+        jd_band = RoleBand.R3
+        jd_summary = f"moderate technical content ({len(tech_hits)} signals)"
+    else:
+        jd_band = RoleBand.R4 if nontech_hits else RoleBand.R3
+        jd_summary = "little or no technical content"
+
+    title_prior_type, title_prior_band = role_type, band
+    adjustment = "none"
+
+    # 5) Reconcile. Content may move the category by at most one band, in either
+    #    direction, and the reason is always recorded.
+    order = [RoleBand.R1, RoleBand.R2, RoleBand.R3, RoleBand.R4]
+    if jd_band is not None:
+        ti, ji = order.index(band), order.index(jd_band)
+        if ji < ti:  # content is stronger than the title implied -> promote one
+            band = order[ti - 1]
+            adjustment = "promoted"
+            positives.append(
+                f"JD content stronger than title prior ({title_prior_band.value}"
+                f" -> {band.value}): {jd_summary}"
+            )
+        elif ji > ti and (nontech_hits or density < 0.15):
+            band = order[min(len(order) - 1, ti + 1)]
+            adjustment = "demoted"
+            negatives.append(
+                f"JD content weaker than title prior ({title_prior_band.value}"
+                f" -> {band.value}): {jd_summary}"
+            )
+            if band in (RoleBand.R3, RoleBand.R4) and title_prior_band is RoleBand.R1:
+                role_type = "solutions_engineer"
 
     confidence = 0.55 if not body_l else min(0.95, 0.6 + 0.35 * density)
+    if adjustment != "none":
+        confidence = min(0.9, confidence + 0.05)  # corroborated by two layers
     needs_review = not body_l or confidence < 0.5
 
     return RoleClassification(
         role_type=role_type, band=band, confidence=round(confidence, 3),
+        title_prior_type=title_prior_type, title_prior_band=title_prior_band,
+        jd_content_band=jd_band, jd_content_summary=jd_summary,
+        adjustment=adjustment,
         evidence=[e for e in evidence if e][:5],
         signals_positive=positives, signals_negative=negatives,
         needs_review=needs_review, technical_density=round(density, 3),

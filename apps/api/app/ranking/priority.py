@@ -55,6 +55,12 @@ class PriorityResult:
     current_candidate_fit: ScoreWithCoverage
     team_project_quality: ScoreWithCoverage
     career_optionality: ScoreWithCoverage
+    # --- priority, decomposed so the user can see why 82 became 91 ---
+    base_priority: float                         # weighted strategic base
+    tier_adjustment: float                       # Tier x Role correction
+    urgency_adjustment: float
+    floor_applied: bool
+    contributions: dict[str, float]              # per-dimension points in base
     application_priority: float                  # 0..100, NOT a match %
     # --- context ---
     role_band: str
@@ -91,6 +97,11 @@ class PriorityResult:
             "career_optionality": self.career_optionality.conservative,
             "evidence_coverage": self.evidence_coverage,
             "opportunity_estimate": self.opportunity_estimate,
+            "base_priority": self.base_priority,
+            "tier_adjustment": self.tier_adjustment,
+            "urgency_adjustment": self.urgency_adjustment,
+            "floor_applied": self.floor_applied,
+            "contributions": self.contributions,
             "application_priority": self.application_priority,
             "recommendation": self.recommendation,
             "interaction_rule": self.interaction_rule,
@@ -257,47 +268,78 @@ def compute_priority(
                + 0.5 * (1 - company.evidence_coverage)) * 100, 2),
     )
 
-    # --- Opportunity estimate: no fake numbers before real outcome data ---
+    # --- Opportunity estimate: with no data it enters NEITHER numerator NOR
+    #     denominator, so it cannot silently pull the score toward 50. ---
     opportunity_text = (
         "Insufficient Personal Outcome Data" if not has_outcome_history
         else "Estimated from personal outcome history"
     )
-    opportunity_component = 50.0 if not has_outcome_history else 50.0
 
     # --- Freshness + effort: ordering only, tightly bounded ---
     effort_factor = 1.0 - min(effort_minutes, 60) / 60
     fresh_effort_component = (0.5 * freshness + 0.5 * effort_factor) * 100
 
-    # --- Weighted strategic base ---
-    base = (
-        w.company_platform_value * cpv.conservative
-        + w.role_strategic_value * rsv.conservative
-        + w.team_project_quality * team.conservative
-        + w.current_candidate_fit * fit_score.conservative
-        + w.opportunity_estimate * opportunity_component
-        + w.freshness_and_effort * fresh_effort_component
-    ) / (w.total() or 1.0)
+    # --- Weighted strategic base (contributions retained for the UI) ---
+    contributions: dict[str, float] = {}
+    num = 0.0
+    den = 0.0
+    for name, weight, value in (
+        ("company_platform_value", w.company_platform_value, cpv.conservative),
+        ("role_strategic_value", w.role_strategic_value, rsv.conservative),
+        ("team_project_quality", w.team_project_quality, team.conservative),
+        ("current_candidate_fit", w.current_candidate_fit, fit_score.conservative),
+        ("freshness_and_effort", w.freshness_and_effort, fresh_effort_component),
+    ):
+        num += weight * value
+        den += weight
+        contributions[name] = round(weight * value, 2)
+    if has_outcome_history:
+        num += w.opportunity_estimate * 50.0
+        den += w.opportunity_estimate
+        contributions["opportunity_estimate"] = round(w.opportunity_estimate * 50.0, 2)
 
-    # --- Non-linear platform multiplier, damped by role transferability ---
-    mult = profile.platform_multiplier.get(company.system_tier, 1.0)
-    effective_bonus = (mult - 1.0) * role.transferability
-    priority = base * (1.0 + effective_bonus)
+    base = num / (den or 1.0)
+    # Rescale contributions to the normalized base so they sum to it.
+    if den:
+        contributions = {k: round(v / den, 2) for k, v in contributions.items()}
 
-    # --- Urgency nudge (ordering only, capped) ---
-    if deadline_within_72h:
-        priority += 3.0
+    # --- Tier x Role policy: an explicit, explainable adjustment.
+    #     Company value is already 50% of the base, so the tier effect here is a
+    #     small strategic correction plus a floor — NOT a second large multiplier.
+    recommendation, rule = interaction_rule(company.system_tier, role.band)
+    tier_points = profile.tier_bonus_points.get(company.system_tier, 0.0)
+    # Provisional companies have not proven their platform: no positive bonus.
+    if company.provisional and tier_points > 0:
+        tier_points = 0.0
+        rule += " (bonus withheld: provisional evidence)"
+    tier_adjustment = tier_points * role.transferability
+
+    floor = 0.0
+    floor_applied = False
+    if not company.provisional and gate.gate is Gate.PASS:
+        floor = profile.priority_floors.get((company.system_tier, role.band.value), 0.0)
+
+    urgency_adjustment = 3.0 if deadline_within_72h else 0.0
+
+    priority = base + tier_adjustment + urgency_adjustment
+    if floor and priority < floor:
+        priority = floor
+        floor_applied = True
+        rule += f" | priority floor {floor:.0f} applied"
 
     # --- Gate overrides everything ---
-    recommendation, rule = interaction_rule(company.system_tier, role.band)
     if gate.gate is Gate.FAIL:
         priority = min(priority, 5.0)
+        tier_adjustment = 0.0
         recommendation = "Skip (ineligible)"
         rule = "Eligibility FAIL overrides all bonuses"
     elif gate.gate is Gate.REVIEW:
         recommendation = "Manual Review"
-        rule = "Eligibility REVIEW → manual review queue"
+        rule = "Eligibility REVIEW → manual review queue (forced)"
 
+    base = max(0.0, min(100.0, base))
     priority = max(0.0, min(100.0, priority))
+    mult = 1.0 + (tier_adjustment / base if base else 0.0)
 
     # --- Explanations ---
     why: list[str] = []
@@ -326,10 +368,19 @@ def compute_priority(
         why_not.append(
             f"company evidence incomplete ({company.evidence_coverage:.0%} coverage)"
         )
-    for f in company.risk_flags[:2]:
-        why_not.append(f"risk flag {f}")
+    if company.risk and company.risk.level.value in ("elevated", "high"):
+        why_not.append(
+            f"risk radar: {company.risk.level.value} "
+            f"({company.risk.signal_count} anonymous signals — not scored)"
+        )
+    if company.risk and company.risk.manual_research_required:
+        unknowns_extra = "risk signals warrant manual research"
+    else:
+        unknowns_extra = ""
 
-    if company.tier_status in ("unrated", "provisional"):
+    if unknowns_extra:
+        unknowns.append(unknowns_extra)
+    if company.rating_status in ("unrated", "provisional"):
         unknowns.append("company platform evidence insufficient — needs research")
     if role.needs_review:
         unknowns.append("role classification needs review (thin JD evidence)")
@@ -348,6 +399,11 @@ def compute_priority(
         current_candidate_fit=fit_score,
         team_project_quality=team,
         career_optionality=career_opt,
+        base_priority=round(base, 1),
+        tier_adjustment=round(tier_adjustment, 1),
+        urgency_adjustment=round(urgency_adjustment, 1),
+        floor_applied=floor_applied,
+        contributions=contributions,
         application_priority=round(priority, 1),
         role_band=role.band.value,
         role_type=role.role_type,

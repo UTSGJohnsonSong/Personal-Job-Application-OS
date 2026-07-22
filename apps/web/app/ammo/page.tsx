@@ -5,14 +5,14 @@ import { AmmoBlock, api } from "@/lib/api";
 export const dynamic = "force-dynamic";
 
 const CATEGORY_LABELS: Record<string, string> = {
-  resume_bullet: "简历 Bullet",
-  project: "项目描述",
-  skill_combo: "技能组合",
-  story: "面试故事 / STAR",
-  answer_template: "标准问答模板",
-  cover_paragraph: "Cover Letter 段落",
-  headline: "一句话定位",
-  other: "其他",
+  resume_bullet: "Resume bullet",
+  project: "Project",
+  skill_combo: "Skill combo",
+  story: "Story / STAR",
+  answer_template: "Answer template",
+  cover_paragraph: "Cover letter paragraph",
+  headline: "Headline",
+  other: "Other",
 };
 
 function Block({ b, isVariant }: { b: AmmoBlock; isVariant?: boolean }) {
@@ -26,25 +26,25 @@ function Block({ b, isVariant }: { b: AmmoBlock; isVariant?: boolean }) {
         <span className="text-sm text-white">{b.title}</span>
         {b.is_master ? (
           <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-900">
-            母本
+            Master
           </span>
         ) : (
           <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-950 text-blue-300 border border-blue-900">
-            变体{b.direction ? ` · ${b.direction}` : ""}
+            Variant{b.direction ? ` · ${b.direction}` : ""}
           </span>
         )}
         {b.contains_metrics && (
           <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-950 text-amber-300 border border-amber-900">
-            含数字 · 需可核实
+            contains metrics · must be verifiable
           </span>
         )}
         {!b.user_confirmed && (
           <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-800 text-gray-400 border border-gray-700">
-            未确认
+            unconfirmed
           </span>
         )}
         {b.usage_count > 0 && (
-          <span className="text-[10px] text-gray-500">用过 {b.usage_count} 次</span>
+          <span className="text-[10px] text-gray-500">used {b.usage_count}×</span>
         )}
       </div>
       <p className="text-sm text-gray-300 mt-2 whitespace-pre-wrap">{b.content}</p>
@@ -83,9 +83,9 @@ export default async function AmmoPage({
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="text-lg font-semibold text-white">弹药库</h1>
+        <h1 className="text-lg font-semibold text-white">Library</h1>
         <p className="text-xs text-gray-500 mt-1">
-          分类存放可随取随用的材料：1 母本 + N 变体。生成申请材料时只从这里取用组合，不凭空编造。
+          Reusable material by category: one master + N variants. Application material is assembled from here — never invented.
         </p>
       </div>
 
@@ -98,7 +98,7 @@ export default async function AmmoPage({
               : "border-gray-700 text-gray-400 hover:text-white"
           }`}
         >
-          全部
+          All
         </a>
         {Object.entries(CATEGORY_LABELS).map(([k, label]) => (
           <a
@@ -117,13 +117,13 @@ export default async function AmmoPage({
 
       {error && (
         <div className="rounded-lg border border-amber-800 bg-amber-950/40 p-4 text-amber-200 text-sm">
-          无法读取弹药库（{error}）
+          Could not load the library ({error})
         </div>
       )}
 
       {!error && groups.length === 0 && (
         <div className="text-sm text-gray-400">
-          弹药库是空的。可以让我把你 Obsidian 弹药库里的 bullet 母本和变体导进来。
+          Library is empty. Import your masters and variants to populate it.
         </div>
       )}
 

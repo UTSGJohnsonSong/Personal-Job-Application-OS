@@ -6,7 +6,16 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.api.routes import ammo, applications, dashboard, health, jobs, queue, records
+from app.api.routes import (
+    ammo,
+    applications,
+    dashboard,
+    health,
+    jobs,
+    queue,
+    records,
+    scoring,
+)
 from app.core.config import get_settings
 from app.core.logging import configure_logging, get_logger
 
@@ -52,6 +61,7 @@ app.include_router(applications.router)
 app.include_router(queue.router)
 app.include_router(records.router)
 app.include_router(ammo.router)
+app.include_router(scoring.router)
 
 
 @app.get("/")

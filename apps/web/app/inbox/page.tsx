@@ -32,13 +32,13 @@ function JobCard({ job }: { job: JobItem }) {
             rel="noreferrer"
             className="text-xs text-accent hover:underline"
           >
-            官方申请链接 ↗
+            Official application link ↗
           </a>
         )}
         <form action={queueAdd} className="ml-auto">
           <input type="hidden" name="job_id" value={job.id} />
           <button className="text-xs px-2 py-1 rounded border border-gray-700 text-gray-300 hover:border-accent hover:text-accent">
-            + 加入投递队列
+            + Add to Apply Queue
           </button>
         </form>
       </div>

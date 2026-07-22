@@ -16,20 +16,20 @@ export default async function RecordsPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-lg font-semibold text-white">投递记录</h1>
+        <h1 className="text-lg font-semibold text-white">Applications</h1>
         <p className="text-xs text-gray-500 mt-1">
-          每一份申请：用了哪版简历、每个问题怎么答的、状态时间线。点进去展开。
+          Every application: which resume version, how each question was answered, and the status timeline.
         </p>
       </div>
 
       {error && (
         <div className="rounded-lg border border-amber-800 bg-amber-950/40 p-4 text-amber-200 text-sm">
-          无法读取记录（{error}）
+          Could not load records ({error})
         </div>
       )}
 
       {!error && items.length === 0 && (
-        <div className="text-sm text-gray-400">还没有任何申请记录。</div>
+        <div className="text-sm text-gray-400">No application records yet.</div>
       )}
 
       <div className="grid gap-2">
@@ -46,10 +46,10 @@ export default async function RecordsPage() {
               </span>
               {r.submitted_at && (
                 <span className="text-xs text-gray-500">
-                  投于 {new Date(r.submitted_at).toLocaleDateString()}
+                  Submitted {new Date(r.submitted_at).toLocaleDateString()}
                 </span>
               )}
-              <span className="ml-auto text-xs text-gray-600">展开 →</span>
+              <span className="ml-auto text-xs text-gray-600">Open →</span>
             </div>
           </Link>
         ))}

@@ -41,12 +41,12 @@ function Row({ item, index }: { item: QueueItem; index: number }) {
             {item.eligibility && (
               <Badge text={item.eligibility} tone={eligTone(item.eligibility)} />
             )}
-            {item.needs_confirmation && <Badge text="需你确认" tone="warn" />}
-            {stale && <Badge text="来源已关闭" tone="bad" />}
+            {item.needs_confirmation && <Badge text="Needs your confirmation" tone="warn" />}
+            {stale && <Badge text="Source closed" tone="bad" />}
           </div>
 
           {item.queue_note && (
-            <div className="text-xs text-gray-400 mt-1">备注：{item.queue_note}</div>
+            <div className="text-xs text-gray-400 mt-1">Note: {item.queue_note}</div>
           )}
 
           {item.why.length > 0 && (
@@ -61,7 +61,7 @@ function Row({ item, index }: { item: QueueItem; index: number }) {
           )}
           {item.unknowns.length > 0 && (
             <div className="text-xs text-gray-500 mt-1">
-              ? 不确定：{item.unknowns.join(" · ")}
+              ? Unknown: {item.unknowns.join(" · ")}
             </div>
           )}
 
@@ -73,23 +73,23 @@ function Row({ item, index }: { item: QueueItem; index: number }) {
                 rel="noreferrer"
                 className="text-xs text-accent hover:underline"
               >
-                官方申请链接 ↗
+                Official application link ↗
               </a>
             )}
             <Link
               href={`/records/${item.application_id}`}
               className="text-xs text-gray-400 hover:text-white"
             >
-              投递记录 →
+              Application record →
             </Link>
             {item.suggested_minutes !== null && (
               <span className="text-xs text-gray-600">
-                建议投入 {item.suggested_minutes} 分钟
+                Suggested {item.suggested_minutes}  min
               </span>
             )}
             <form action={queueRemove} className="ml-auto">
               <input type="hidden" name="job_id" value={item.job_id} />
-              <button className="text-xs text-gray-500 hover:text-red-400">移出队列</button>
+              <button className="text-xs text-gray-500 hover:text-red-400">Remove</button>
             </form>
           </div>
         </div>
@@ -110,22 +110,22 @@ export default async function QueuePage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-lg font-semibold text-white">投递队列</h1>
+        <h1 className="text-lg font-semibold text-white">Apply Queue</h1>
         <p className="text-xs text-gray-500 mt-1">
-          已按价值排序（手动优先级 → 匹配分 → 新鲜度）。到投递时间时，从上往下投。
+          Ordered by value (manual priority → priority score → freshness). At apply time, work top-down.
         </p>
       </div>
 
       {error && (
         <div className="rounded-lg border border-amber-800 bg-amber-950/40 p-4 text-amber-200 text-sm">
-          无法读取队列（{error}）
+          Could not load the queue ({error})
         </div>
       )}
 
       {!error && items.length === 0 && (
         <div className="text-sm text-gray-400">
-          队列是空的。去 <Link href="/inbox" className="text-accent hover:underline">Job Inbox</Link>{" "}
-          把想投的岗位加进来。
+          Queue is empty. Go to <Link href="/inbox" className="text-accent hover:underline">Job Inbox</Link>{" "}
+          and add the jobs you want to apply to.
         </div>
       )}
 

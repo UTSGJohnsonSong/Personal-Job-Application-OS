@@ -62,9 +62,23 @@ class RankingProfile:
         default_factory=lambda: DEFAULT_WEIGHTS[RankingMode.INTERNSHIP]
     )
     version_label: str = "v2-internship-default"
-    # Platform multipliers by company tier (non-linear platform advantage).
-    platform_multiplier: dict[str, float] = field(
-        default_factory=lambda: {"S": 1.18, "A": 1.10, "B": 1.04, "C": 1.00, "D": 0.85}
+
+    # Company value is ALREADY 50% of the base in Internship Mode. The tier
+    # effect here is therefore a small, additive strategic correction — not a
+    # second large multiplier that would double-count the platform.
+    tier_bonus_points: dict[str, float] = field(
+        default_factory=lambda: {"S": 6.0, "A": 4.0, "B": 1.5, "C": 0.0, "D": -6.0}
+    )
+    # Explicit Tier x Role policy: floors are easier to explain than multipliers
+    # and encode the stated preference directly.
+    priority_floors: dict[tuple[str, str], float] = field(
+        default_factory=lambda: {
+            ("S", "R1"): 85.0,
+            ("S", "R2"): 82.0,
+            ("S", "R3"): 80.0,
+            ("A", "R1"): 76.0,
+            ("A", "R2"): 72.0,
+        }
     )
     neutral_prior: float = 0.5
 

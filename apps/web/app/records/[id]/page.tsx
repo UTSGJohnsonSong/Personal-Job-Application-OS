@@ -24,25 +24,25 @@ function AnswerCard({ a }: { a: RecordAnswer }) {
     <div className={`rounded border ${border} bg-black/20 p-3`}>
       <div className="text-xs text-gray-400">{a.question}</div>
       <div className="text-sm text-gray-100 mt-1 whitespace-pre-wrap">
-        {a.answer ?? <span className="text-amber-400">（未填 — 需要你来回答）</span>}
+        {a.answer ?? <span className="text-amber-400">(blank — you need to answer this)</span>}
       </div>
       <div className="flex gap-2 mt-2 flex-wrap">
         {a.is_sensitive && (
           <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-950 text-red-300 border border-red-900">
-            敏感
+            Sensitive
           </span>
         )}
         <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-800 text-gray-400 border border-gray-700">
-          来源: {a.provenance}
+          source: {a.provenance}
         </span>
         {a.answer_source && (
           <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-800 text-gray-400 border border-gray-700">
-            取自 {a.answer_source}
+            from {a.answer_source}
           </span>
         )}
         {!a.user_confirmed && a.answer && (
           <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-950 text-blue-300 border border-blue-900">
-            草稿 · 未确认
+            draft · unconfirmed
           </span>
         )}
       </div>
@@ -67,7 +67,7 @@ export default async function RecordDetail({
   if (error || !rec) {
     return (
       <div className="rounded-lg border border-amber-800 bg-amber-950/40 p-4 text-amber-200 text-sm">
-        无法读取这条记录（{error}）
+        Could not load this record ({error})
       </div>
     );
   }
@@ -76,7 +76,7 @@ export default async function RecordDetail({
     <div className="space-y-6">
       <div>
         <Link href="/records" className="text-xs text-gray-500 hover:text-white">
-          ← 投递记录
+          ← Applications
         </Link>
         <h1 className="text-lg font-semibold text-white mt-2">{rec.job.title}</h1>
         <div className="flex items-center gap-3 mt-2 flex-wrap">
@@ -85,8 +85,8 @@ export default async function RecordDetail({
           </span>
           {rec.resume_version && (
             <span className="text-xs text-gray-400">
-              简历版本：<span className="text-white">{rec.resume_version.name}</span>
-              {rec.resume_version.direction && `（${rec.resume_version.direction}）`}
+              Resume version: <span className="text-white">{rec.resume_version.name}</span>
+              {rec.resume_version.direction && `(${rec.resume_version.direction})`}
             </span>
           )}
           {rec.job.apply_url && (
@@ -96,15 +96,15 @@ export default async function RecordDetail({
               rel="noreferrer"
               className="text-xs text-accent hover:underline"
             >
-              官方链接 ↗
+              Official link ↗
             </a>
           )}
         </div>
       </div>
 
-      {/* 手动切状态 */}
+      {/* manual status switch */}
       <section>
-        <h2 className="text-sm font-semibold text-white mb-2">更新状态</h2>
+        <h2 className="text-sm font-semibold text-white mb-2">Update status</h2>
         <form action={changeStatus} className="flex gap-2 items-center">
           <input type="hidden" name="application_id" value={rec.application_id} />
           <select
@@ -119,17 +119,17 @@ export default async function RecordDetail({
             ))}
           </select>
           <button className="text-sm px-3 py-1 rounded bg-accent text-white hover:opacity-90">
-            保存
+            Save
           </button>
           <span className="text-xs text-gray-600">
-            （submitted 不在此处——正式提交需逐岗位确认）
+            (submitted is not here — a real submission requires per-job confirmation)
           </span>
         </form>
       </section>
 
       {(rec.uncertainties.length > 0 || rec.risks.length > 0) && (
         <section className="rounded-lg border border-amber-900 bg-amber-950/30 p-4">
-          <h2 className="text-sm font-semibold text-amber-200 mb-2">需要注意</h2>
+          <h2 className="text-sm font-semibold text-amber-200 mb-2">Needs attention</h2>
           {rec.risks.map((r) => (
             <div key={r} className="text-xs text-red-300">⚠ {r}</div>
           ))}
@@ -141,10 +141,10 @@ export default async function RecordDetail({
 
       <section>
         <h2 className="text-sm font-semibold text-white mb-2">
-          申请问答（{rec.answers.length}）
+          Application answers ({rec.answers.length})
         </h2>
         {rec.answers.length === 0 ? (
-          <p className="text-sm text-gray-500">还没有记录问答。</p>
+          <p className="text-sm text-gray-500">No answers recorded yet.</p>
         ) : (
           <div className="grid gap-2">
             {rec.answers.map((a, i) => (
@@ -164,10 +164,10 @@ export default async function RecordDetail({
       )}
 
       <section>
-        <h2 className="text-sm font-semibold text-white mb-2">时间线</h2>
+        <h2 className="text-sm font-semibold text-white mb-2">Timeline</h2>
         <div className="space-y-1">
           {rec.timeline.length === 0 && (
-            <p className="text-sm text-gray-500">暂无事件。</p>
+            <p className="text-sm text-gray-500">No events yet.</p>
           )}
           {rec.timeline.map((e, i) => (
             <div key={i} className="text-xs text-gray-400 flex gap-3">

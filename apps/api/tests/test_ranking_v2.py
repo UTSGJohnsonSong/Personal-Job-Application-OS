@@ -83,46 +83,80 @@ def test_high_brand_low_domain_does_not_get_s_everywhere():
     r = assess_company(ev)
     tech = next(d for d in r.dimensions if d.dimension is D.TECHNICAL_DENSITY)
     assert tech.score is not None and tech.score < 0.4
-    assert r.system_tier != "S"
+    assert r.estimated_tier != "S"
 
 
 def test_domain_elite_not_treated_as_ordinary_small_company():
     r = assess_company(_domain_elite())
     tech = next(d for d in r.dimensions if d.dimension is D.TECHNICAL_DENSITY)
     assert tech.score is not None and tech.score >= 0.9   # elite in its domain
-    assert r.system_tier in ("A", "B")                     # not dumped to C/D
+    assert r.estimated_tier in ("A", "B")                     # not dumped to C/D
     assert r.evidence_coverage >= 0.65
 
 
-def test_insufficient_coverage_gives_only_provisional_tier():
+def test_insufficient_coverage_gives_only_provisional_status():
     r = assess_company(_unknown_startup())
     assert r.evidence_coverage < 0.65
     assert r.provisional is True
-    assert r.display_tier.endswith("?") or r.display_tier == "Unrated"
+    assert r.rated_tier is None          # no formal rating while provisional
+    assert r.display_tier.endswith("?") or "unrated" in r.display_tier
 
 
-def test_grade_c_evidence_alone_cannot_change_tier():
-    """Anonymous reviews may raise risk flags but never move the score."""
+def test_tier_letter_and_coverage_are_independent_axes():
+    """High evidence score + thin coverage => 'S?' + Provisional, NOT 'B?'.
+
+    Coverage qualifies confidence; it must never rewrite the letter.
+    """
+    strong_but_thin = [
+        _ev(D.BRAND_SIGNAL, 0.97, G.A, "official_site", "very strong brand"),
+        _ev(D.TECHNICAL_DENSITY, 0.95, G.A, "eng_blog", "deep engineering"),
+    ]
+    r = assess_company(strong_but_thin)
+    assert r.known_evidence_score > 88          # score axis says S
+    assert r.estimated_tier == "S"
+    assert r.rating_status == "provisional"     # coverage axis says provisional
+    assert r.display_tier == "S?"               # NOT "B?"
+    assert r.rated_tier is None
+
+
+def test_grade_c_evidence_alone_cannot_change_tier_but_feeds_risk():
+    """Anonymous reviews never move the score, but they are not discarded."""
     base = assess_company(_domain_elite())
     with_c = assess_company(
         _domain_elite()
         + [_ev(D.BRAND_SIGNAL, 0.99, G.C, "reddit", "anonymous hype")]
         + [_ev(D.STABILITY, 0.01, G.C, "blind", "anonymous doom")]
     )
-    assert with_c.system_tier == base.system_tier
+    assert with_c.estimated_tier == base.estimated_tier
     assert with_c.known_evidence_score == base.known_evidence_score
-    assert len(with_c.risk_flags) == 2
+    # ...but the negative anonymous signal registers on the independent radar.
+    assert with_c.risk is not None
+    assert with_c.risk.level.value != "none"
+    assert with_c.risk.evidence_quality in ("low", "medium")
+
+
+def test_many_consistent_c_signals_trigger_manual_research_not_demotion():
+    ev = _domain_elite() + [
+        _ev(D.STABILITY, 0.05, G.C, "blind", "layoff rumours"),
+        _ev(D.STABILITY, 0.1, G.C, "reddit", "hiring freeze reports"),
+        _ev(D.STABILITY, 0.05, G.C, "glassdoor", "poor outlook reviews"),
+    ]
+    r = assess_company(ev)
+    assert r.risk is not None
+    assert r.risk.manual_research_required is True
+    # Tier is unchanged: anonymous signal is a radar, not a vote.
+    assert r.estimated_tier == assess_company(_domain_elite()).estimated_tier
 
 
 def test_s_tier_requires_grade_a_and_two_types_and_coverage():
     """Well-evidenced platform reaches S; the same scores with only B-grade do not."""
-    assert assess_company(_big_platform()).system_tier == "S"
+    assert assess_company(_big_platform()).rated_tier == "S"
     weak = [
         Evidence(url="u", source_type="news", grade=G.B, supports_dimension=e.supports_dimension,
                  summary="s", value=e.value)
         for e in _big_platform()
     ]
-    assert assess_company(weak).system_tier != "S"
+    assert assess_company(weak).rated_tier != "S"
 
 
 def test_coverage_bands():
@@ -294,7 +328,8 @@ def test_no_fake_precision_when_coverage_is_low():
     r = _score(_unknown_startup(), "Applied AI Engineer Intern", AI_BODY, CAND,
                [JDSkill("python", True)])
     assert r.company_platform_value.coverage < 0.65
-    assert r.company_tier_display.endswith("?") or r.company_tier_display == "Unrated"
+    # The letter is qualified, never silently rewritten by coverage.
+    assert "?" in r.company_tier_display
     assert "needs research" in " ".join(r.unknowns).lower()
 
 
@@ -326,3 +361,69 @@ def test_internship_mode_weights_platform_above_fit():
     # Other modes must not inherit the 50%.
     assert RankingProfile.for_mode(RankingMode.NEW_GRAD).weights.company_platform_value < 0.50
     assert RankingProfile.for_mode(RankingMode.EXPERIENCED).weights.company_platform_value < 0.35
+
+
+# ======================================== priority decomposition & clamping
+
+def test_priority_is_clamped_and_decomposed():
+    """Company is 50% of the base; the tier effect must be a small, visible
+    correction, not a second large multiplier that can push past 100."""
+    r = _score(_big_platform(), "Software Development Engineer Intern", SWE_BODY,
+               CAND, [JDSkill("python", True)])
+    assert 0.0 <= r.application_priority <= 100.0
+    assert 0.0 <= r.base_priority <= 100.0
+    # Base + adjustments must reconcile with the final number (or a floor applied).
+    reconstructed = r.base_priority + r.tier_adjustment + r.urgency_adjustment
+    assert r.floor_applied or abs(reconstructed - r.application_priority) < 0.2
+    # Tier adjustment stays a correction, not a doubling of the platform weight.
+    assert abs(r.tier_adjustment) <= 10.0
+
+
+def test_contributions_explain_the_base():
+    r = _score(_big_platform(), "Software Development Engineer Intern", SWE_BODY,
+               CAND, [JDSkill("python", True)])
+    assert "company_platform_value" in r.contributions
+    assert abs(sum(r.contributions.values()) - r.base_priority) < 0.5
+    # Company should visibly dominate in internship mode.
+    assert r.contributions["company_platform_value"] > r.contributions["current_candidate_fit"]
+
+
+def test_opportunity_absent_does_not_enter_the_denominator():
+    """With no outcome history the component is excluded entirely, not set to 50."""
+    r = _score(_big_platform(), "Software Development Engineer Intern", SWE_BODY,
+               CAND, [JDSkill("python", True)])
+    assert r.opportunity_estimate == "Insufficient Personal Outcome Data"
+    assert "opportunity_estimate" not in r.contributions
+
+
+def test_provisional_company_gets_no_positive_tier_bonus():
+    """An unproven platform must not receive the platform bonus."""
+    r = _score(_unknown_startup(), "Backend Engineer Intern", SWE_BODY,
+               CAND, [JDSkill("python", True)])
+    assert r.tier_adjustment <= 0.0
+    assert "provisional" in r.interaction_rule.lower() or r.tier_adjustment == 0.0
+
+
+def test_role_classification_reports_three_layers():
+    r = classify_role(
+        "Data Analyst Intern",
+        "Run experiments, build data models, heavy SQL and Python, schema design, "
+        "A/B test analysis, deploy pipelines to production.",
+    )
+    assert r.title_prior_band is not None
+    assert r.jd_content_band is not None
+    assert r.jd_content_summary
+    # Technical content promotes a nominally R3 title.
+    assert r.adjustment == "promoted"
+    assert r.band is RoleBand.R2
+    assert r.evidence
+
+
+def test_pure_sales_title_stays_demoted_despite_engineer_word():
+    r = classify_role(
+        "Solutions Engineer",
+        "Own quota, cold call prospects, upsell clients, manage client relationship.",
+    )
+    assert r.title_prior_band is not None
+    assert r.band in (RoleBand.R3, RoleBand.R4)
+    assert r.transferability <= 0.8
