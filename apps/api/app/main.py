@@ -12,6 +12,7 @@ from app.api.routes import (
     dashboard,
     health,
     jobs,
+    manual,
     queue,
     records,
     scoring,
@@ -62,6 +63,7 @@ app.include_router(queue.router)
 app.include_router(records.router)
 app.include_router(ammo.router)
 app.include_router(scoring.router)
+app.include_router(manual.router)
 
 
 @app.get("/")

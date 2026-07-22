@@ -30,6 +30,10 @@ async def _make_job(session, title="Backend Engineer") -> str:
     return job.id
 
 
+async def _uid(session) -> str:
+    return (await session.execute(select(User.id).limit(1))).scalar_one()
+
+
 # ------------------------------------------------------------------ auth
 
 @pytest.mark.asyncio
@@ -186,3 +190,59 @@ async def test_ammo_master_and_variants(client, session):
         variant["id"] != v["id"]
         for g in after["groups"] for v in g["variants"]
     )
+
+
+# ------------------------------------------------------------------ manual entry
+
+@pytest.mark.asyncio
+async def test_manual_job_entry_records_unverified_state(client, session):
+    await _make_job(session)  # ensure a user exists
+    r = await client.post("/manual/jobs", json={
+        "company_name": "Example Bank",
+        "title": "Data Engineering Analyst (8-month co-op)",
+        "apply_url": "https://jobs.example-bank.test/123",
+        "initial_status": "application_started",
+        "note": "applied via official site; submission unconfirmed",
+    })
+    assert r.status_code == 200
+    body = r.json()
+    assert body["status"] == "application_started"
+    assert body["warnings"]  # must warn that nothing was verified
+
+    rec = (await client.get(f"/records/{body['application_id']}")).json()
+    assert rec["job"]["source_status"] == "unknown"   # never claimed to be open
+
+
+@pytest.mark.asyncio
+async def test_manual_entry_cannot_declare_submitted(client, session):
+    await _make_job(session)
+    r = await client.post("/manual/jobs", json={
+        "company_name": "Example Bank",
+        "title": "Analyst",
+        "initial_status": "submitted",
+    })
+    assert r.status_code == 409
+
+
+@pytest.mark.asyncio
+async def test_purge_requires_exact_confirmation(client, session):
+    await _make_job(session)
+    assert (await client.post("/manual/purge-demo-data",
+                              json={"confirm": "yes"})).status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_purge_clears_jobs_and_fictional_personal_context(client, session):
+    from app.models.personal import CandidateSkill
+    await _make_job(session)
+    session.add(CandidateSkill(user_id=(await _uid(session)), name="python",
+                               user_confirmed=True))
+    await session.commit()
+
+    r = await client.post("/manual/purge-demo-data",
+                          json={"confirm": "PURGE DEMO DATA"})
+    assert r.status_code == 200
+    purged = r.json()["purged"]
+    assert purged["jobs"] >= 1
+    assert purged["candidate_skills"] >= 1          # fake facts about the user go too
+    assert (await client.get("/jobs")).json()["count"] == 0
