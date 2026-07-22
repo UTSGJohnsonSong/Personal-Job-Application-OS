@@ -103,7 +103,10 @@ class ApplicationPriorityScore(Base, PKMixin, TimestampMixin):
 
     eligibility_gate: Mapped[str] = mapped_column(String(10), index=True)  # PASS/REVIEW/FAIL
     company_tier: Mapped[str] = mapped_column(String(2))
-    company_tier_display: Mapped[str] = mapped_column(String(10))
+    # Display form carries qualifiers, e.g. "S?" or "C? (unrated)" — must not be
+    # tight. Postgres enforces VARCHAR length; SQLite does not, so a too-small
+    # column only fails in production.
+    company_tier_display: Mapped[str] = mapped_column(String(40))
     role_band: Mapped[str] = mapped_column(String(2))
     role_type: Mapped[str] = mapped_column(String(60))
 
@@ -115,9 +118,10 @@ class ApplicationPriorityScore(Base, PKMixin, TimestampMixin):
     evidence_coverage: Mapped[float] = mapped_column(Float, default=0.0)
     application_priority: Mapped[float] = mapped_column(Float, default=0.0, index=True)
 
-    opportunity_estimate: Mapped[str] = mapped_column(String(80), default="")
-    recommendation: Mapped[str] = mapped_column(String(40), default="")
-    interaction_rule: Mapped[str] = mapped_column(String(120), default="")
+    opportunity_estimate: Mapped[str] = mapped_column(String(120), default="")
+    recommendation: Mapped[str] = mapped_column(String(60), default="")
+    # Rules accumulate qualifiers ("... | priority floor 80 applied").
+    interaction_rule: Mapped[str] = mapped_column(String(255), default="")
     why: Mapped[list] = mapped_column(JSON, default=list)
     why_not: Mapped[list] = mapped_column(JSON, default=list)
     unknowns: Mapped[list] = mapped_column(JSON, default=list)

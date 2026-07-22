@@ -427,3 +427,51 @@ def test_pure_sales_title_stays_demoted_despite_engineer_word():
     assert r.title_prior_band is not None
     assert r.band in (RoleBand.R3, RoleBand.R4)
     assert r.transferability <= 0.8
+
+
+# ================================ persistence column-width safety (Postgres)
+
+def test_persisted_string_columns_fit_worst_case_values():
+    """SQLite ignores VARCHAR length; Postgres enforces it.
+
+    A value that overflows only shows up in production, so assert the widest
+    realistic strings fit the declared column widths.
+    """
+    from app.models.ranking_v2 import ApplicationPriorityScore as APS
+
+    cols = APS.__table__.columns
+    worst = {
+        # e.g. "C? (unrated)"
+        "company_tier_display": max(
+            len(t) for t in ("S", "S?", "C? (unrated)", "Unrated")
+        ),
+        "eligibility_gate": len("REVIEW"),
+        "company_tier": len("S"),
+        "role_band": len("R1"),
+        "role_type": len("nontechnical_business_development"),
+        "recommendation": len("Apply / Research Company"),
+        "opportunity_estimate": len("Insufficient Personal Outcome Data"),
+        # Rules accumulate qualifiers.
+        "interaction_rule": len(
+            "S+R3 → Serious Apply (platform compensates)"
+            " (bonus withheld: provisional evidence)"
+            " | priority floor 80 applied"
+        ),
+        "ranking_mode": len("experienced"),
+        "formula_version": len("legacy-v1"),
+        "weights_version": len("v2-internship-default"),
+    }
+    for name, needed in worst.items():
+        declared = cols[name].type.length
+        assert declared is not None and declared >= needed, (
+            f"{name}: declared VARCHAR({declared}) < worst-case {needed} chars"
+        )
+
+
+def test_display_tier_strings_are_bounded():
+    """Whatever assess_company can emit must fit the persisted column."""
+    from app.models.ranking_v2 import ApplicationPriorityScore as APS
+
+    limit = APS.__table__.columns["company_tier_display"].type.length
+    for ev in ([], _unknown_startup(), _domain_elite(), _big_platform()):
+        assert len(assess_company(ev).display_tier) <= limit
