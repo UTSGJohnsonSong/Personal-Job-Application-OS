@@ -6,6 +6,7 @@ from fastapi import APIRouter, Body, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.deps import require_token
 from app.applications.state_machine import (
     AppStatus,
     IllegalTransition,
@@ -22,7 +23,9 @@ from app.models.application import (
 )
 from app.models.ops import AuditLog
 
-router = APIRouter(prefix="/applications", tags=["applications"])
+router = APIRouter(
+    prefix="/applications", tags=["applications"], dependencies=[Depends(require_token)]
+)
 
 
 async def _record_event(session, app: Application, frm, to, event_type, detail=None):

@@ -36,6 +36,9 @@ class Settings(BaseSettings):
     llm_model: str = ""
     llm_strict_pii_minimization: bool = True
 
+    # Single-principal API token. Empty => protected routes refuse to serve.
+    api_token: str = ""
+
     session_cookie_name: str = "job_os_session"
     session_ttl_minutes: int = 1440
 

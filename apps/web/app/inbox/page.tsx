@@ -1,3 +1,4 @@
+import { queueAdd } from "@/app/actions";
 import { api, JobItem } from "@/lib/api";
 
 // Data is per-request from the API; never prerender at build time.
@@ -23,16 +24,24 @@ function JobCard({ job }: { job: JobItem }) {
           <div className="text-sm text-gray-200">{(job.freshness_score * 100).toFixed(0)}%</div>
         </div>
       </div>
-      {job.canonical_application_url && (
-        <a
-          href={job.canonical_application_url}
-          target="_blank"
-          rel="noreferrer"
-          className="text-xs text-accent hover:underline mt-2 inline-block"
-        >
-          Official application link ↗
-        </a>
-      )}
+      <div className="flex items-center gap-3 mt-2">
+        {job.canonical_application_url && (
+          <a
+            href={job.canonical_application_url}
+            target="_blank"
+            rel="noreferrer"
+            className="text-xs text-accent hover:underline"
+          >
+            官方申请链接 ↗
+          </a>
+        )}
+        <form action={queueAdd} className="ml-auto">
+          <input type="hidden" name="job_id" value={job.id} />
+          <button className="text-xs px-2 py-1 rounded border border-gray-700 text-gray-300 hover:border-accent hover:text-accent">
+            + 加入投递队列
+          </button>
+        </form>
+      </div>
     </div>
   );
 }

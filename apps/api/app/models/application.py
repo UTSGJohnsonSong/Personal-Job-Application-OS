@@ -50,6 +50,13 @@ class Application(Base, PKMixin, TimestampMixin):
     submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_status_change_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
+    # --- Apply queue ("想投列表") ---
+    # queued_at set => the user has put this job in the queue to apply to.
+    queued_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
+    queue_note: Mapped[str | None] = mapped_column(Text)
+    # Manual override of ranking order within the queue (lower = sooner).
+    queue_priority: Mapped[int | None] = mapped_column()
+
 
 class ApplicationEvent(Base, PKMixin, TimestampMixin):
     __tablename__ = "application_events"

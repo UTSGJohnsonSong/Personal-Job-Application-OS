@@ -6,11 +6,14 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.deps import require_token
 from app.db.session import get_session
 from app.models.application import Application
 from app.models.sourcing import Job
 
-router = APIRouter(prefix="/dashboard", tags=["dashboard"])
+router = APIRouter(
+    prefix="/dashboard", tags=["dashboard"], dependencies=[Depends(require_token)]
+)
 
 _FUNNEL = [
     "discovered", "eligible", "shortlisted", "preparing", "ready_for_review",

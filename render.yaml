@@ -22,6 +22,8 @@ services:
         value: "true"          # loads fictional demo jobs so the UI has data
       - key: API_CORS_ORIGINS
         sync: false             # set to your https://<app>.vercel.app after deploy
+      - key: API_TOKEN
+        generateValue: true     # single-principal API key; copy into Vercel as API_TOKEN
 
 databases:
   - name: job-os-db

@@ -1,0 +1,28 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+
+import { api } from "@/lib/api";
+
+export async function changeStatus(formData: FormData) {
+  const id = String(formData.get("application_id"));
+  const status = String(formData.get("status"));
+  await api.setStatus(id, status);
+  revalidatePath(`/records/${id}`);
+  revalidatePath("/records");
+  revalidatePath("/queue");
+}
+
+export async function queueAdd(formData: FormData) {
+  const jobId = String(formData.get("job_id"));
+  await api.addToQueue(jobId);
+  revalidatePath("/inbox");
+  revalidatePath("/queue");
+}
+
+export async function queueRemove(formData: FormData) {
+  const jobId = String(formData.get("job_id"));
+  await api.removeFromQueue(jobId);
+  revalidatePath("/queue");
+  revalidatePath("/inbox");
+}

@@ -4,6 +4,7 @@ Alembic and create_all rely on this module importing every mapped class.
 """
 
 from app.db.base import Base  # noqa: F401
+from app.models.ammo import AmmoBlock  # noqa: F401
 from app.models.application import (  # noqa: F401
     Application,
     ApplicationAnswer,
