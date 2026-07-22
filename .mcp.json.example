@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "job-os": {
+      "command": "<repo>/apps/api/.venv/Scripts/python.exe",
+      "args": ["<repo>/apps/mcp/server.py"],
+      "env": {
+        "JOB_OS_API": "https://your-api.onrender.com",
+        "JOB_OS_TOKEN": "<your API_TOKEN — never commit the real one>"
+      }
+    }
+  }
+}
