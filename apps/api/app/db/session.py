@@ -9,7 +9,7 @@ from app.core.config import get_settings
 _settings = get_settings()
 
 engine = create_async_engine(
-    _settings.database_url,
+    _settings.async_database_url,
     echo=False,
     future=True,
     # check_same_thread only relevant for sqlite; asyncpg ignores connect_args.

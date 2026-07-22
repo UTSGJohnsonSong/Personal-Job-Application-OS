@@ -44,6 +44,20 @@ class Settings(BaseSettings):
         return self.database_url.startswith("sqlite")
 
     @property
+    def async_database_url(self) -> str:
+        """Normalize provider-supplied URLs to an async driver.
+
+        Render/Railway expose ``postgres://`` / ``postgresql://``; the async
+        engine needs the asyncpg driver. SQLite URLs pass through unchanged.
+        """
+        url = self.database_url
+        if url.startswith("postgres://"):
+            url = "postgresql://" + url[len("postgres://") :]
+        if url.startswith("postgresql://"):
+            url = "postgresql+asyncpg://" + url[len("postgresql://") :]
+        return url
+
+    @property
     def cors_origins(self) -> list[str]:
         return [o.strip() for o in self.api_cors_origins.split(",") if o.strip()]
 

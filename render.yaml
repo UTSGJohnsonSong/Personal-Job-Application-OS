@@ -1,0 +1,28 @@
+# Render Blueprint — one-click backend + Postgres for Personal Job Application OS.
+# Deploy: render.com/deploy?repo=https://github.com/UTSGJohnsonSong/Personal-Job-Application-OS
+# After first deploy, set API_CORS_ORIGINS to your Vercel URL, then set
+# NEXT_PUBLIC_API_BASE (in Vercel) to this service's URL and redeploy the web app.
+services:
+  - type: web
+    name: job-os-api
+    runtime: docker
+    dockerfilePath: ./apps/api/Dockerfile
+    dockerContext: ./apps/api
+    plan: free
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: job-os-db
+          property: connectionString
+      - key: APP_SECRET_KEY
+        generateValue: true
+      - key: SEED_ON_START
+        value: "true"          # loads fictional demo jobs so the UI has data
+      - key: API_CORS_ORIGINS
+        sync: false             # set to your https://<app>.vercel.app after deploy
+
+databases:
+  - name: job-os-db
+    plan: free
