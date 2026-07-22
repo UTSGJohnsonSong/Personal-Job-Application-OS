@@ -1,5 +1,8 @@
 import { api } from "@/lib/api";
 
+// Data is per-request from the API; never prerender at build time.
+export const dynamic = "force-dynamic";
+
 function Stat({ label, value }: { label: string; value: number | string }) {
   return (
     <div className="rounded-lg border border-gray-800 bg-panel p-4">

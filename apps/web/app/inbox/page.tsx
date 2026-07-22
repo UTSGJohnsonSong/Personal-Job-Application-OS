@@ -1,5 +1,8 @@
 import { api, JobItem } from "@/lib/api";
 
+// Data is per-request from the API; never prerender at build time.
+export const dynamic = "force-dynamic";
+
 function priorityLabel(p: number): string {
   return p === 1 ? "First-party ATS" : p === 2 ? "Gov/University" : "Aggregator";
 }
