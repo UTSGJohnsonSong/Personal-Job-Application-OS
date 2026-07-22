@@ -8,21 +8,22 @@ import { SESSION_COOKIE, verifySession } from "@/lib/session";
  *
  * Without this, the site holds the API token server-side and would happily
  * render the owner's personal data to any visitor who knows the URL.
+ *
+ * The middleware only needs APP_SECRET_KEY (to verify the session cookie).
+ * The password check lives in the login server action, which runs in the Node
+ * runtime — so this file never depends on APP_PASSWORD being visible to the
+ * Edge runtime. It still fails closed: with no secret, no cookie can ever
+ * verify, so every request is sent to /login.
  */
 export async function middleware(request: NextRequest) {
-  const secret = process.env.APP_SECRET_KEY ?? "";
-  const password = process.env.APP_PASSWORD ?? "";
-
-  // Fail closed: with no password configured, refuse rather than serve data.
-  if (!password || !secret) {
-    if (request.nextUrl.pathname === "/setup-required") return NextResponse.next();
-    return NextResponse.rewrite(new URL("/setup-required", request.url));
-  }
-
-  const ok = await verifySession(request.cookies.get(SESSION_COOKIE)?.value, secret);
-  if (ok) return NextResponse.next();
-
   if (request.nextUrl.pathname === "/login") return NextResponse.next();
+
+  const secret = process.env.APP_SECRET_KEY ?? "";
+  const ok = secret
+    ? await verifySession(request.cookies.get(SESSION_COOKIE)?.value, secret)
+    : false;
+
+  if (ok) return NextResponse.next();
 
   const url = new URL("/login", request.url);
   url.searchParams.set("next", request.nextUrl.pathname);
@@ -30,6 +31,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  // Everything except Next internals and static assets.
   matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
 };

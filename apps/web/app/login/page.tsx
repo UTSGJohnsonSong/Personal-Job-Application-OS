@@ -19,19 +19,20 @@ async function login(formData: FormData) {
 
   const password = process.env.APP_PASSWORD ?? "";
   const secret = process.env.APP_SECRET_KEY ?? "";
+  if (!password || !secret) redirect("/login?error=config");
+
   const supplied = String(formData.get("password") ?? "");
   const next = String(formData.get("next") ?? "/");
 
-  // Constant-time-ish compare.
   let diff = supplied.length === password.length ? 0 : 1;
   for (let i = 0; i < Math.max(supplied.length, password.length); i++) {
     diff |= supplied.charCodeAt(i) ^ password.charCodeAt(i);
   }
 
-  if (!password || diff !== 0) {
+  if (diff !== 0) {
     failures += 1;
     if (failures >= 5) {
-      lockedUntil = now + 5 * 60_000; // 5 minutes
+      lockedUntil = now + 5 * 60_000;
       failures = 0;
     }
     redirect("/login?error=1");
@@ -49,6 +50,11 @@ export default async function LoginPage({
   searchParams: Promise<{ error?: string; next?: string }>;
 }) {
   const sp = await searchParams;
+
+  // Config presence only — never the values themselves.
+  const hasPassword = Boolean(process.env.APP_PASSWORD);
+  const hasSecret = Boolean(process.env.APP_SECRET_KEY);
+  const configured = hasPassword && hasSecret;
 
   return (
     <div className="min-h-[60vh] flex items-center justify-center">
@@ -69,8 +75,9 @@ export default async function LoginPage({
           name="password"
           autoFocus
           required
+          disabled={!configured}
           placeholder="Password"
-          className="w-full bg-gray-900 border border-gray-700 rounded px-3 py-2 text-sm text-gray-100"
+          className="w-full bg-gray-900 border border-gray-700 rounded px-3 py-2 text-sm text-gray-100 disabled:opacity-40"
         />
 
         {sp.error === "locked" && (
@@ -78,13 +85,39 @@ export default async function LoginPage({
             Too many attempts. Try again in a few minutes.
           </p>
         )}
-        {sp.error === "1" && (
-          <p className="text-xs text-red-400">Incorrect password.</p>
+        {sp.error === "1" && <p className="text-xs text-red-400">Incorrect password.</p>}
+        {sp.error === "config" && (
+          <p className="text-xs text-red-400">Login is not configured on the server.</p>
         )}
 
-        <button className="w-full text-sm px-3 py-2 rounded bg-accent text-white hover:opacity-90">
+        <button
+          disabled={!configured}
+          className="w-full text-sm px-3 py-2 rounded bg-accent text-white hover:opacity-90 disabled:opacity-40"
+        >
           Sign in
         </button>
+
+        {!configured && (
+          <div className="rounded border border-amber-800 bg-amber-950/40 p-3 text-[11px] text-amber-200 space-y-1">
+            <div className="font-medium">Setup required — login is not configured.</div>
+            <div>
+              APP_PASSWORD:{" "}
+              <span className={hasPassword ? "text-emerald-400" : "text-red-400"}>
+                {hasPassword ? "set" : "MISSING"}
+              </span>
+            </div>
+            <div>
+              APP_SECRET_KEY:{" "}
+              <span className={hasSecret ? "text-emerald-400" : "text-red-400"}>
+                {hasSecret ? "set" : "MISSING"}
+              </span>
+            </div>
+            <div className="text-amber-300/70">
+              Add the missing variable(s) to this project&apos;s Production
+              environment, then redeploy. Values are never displayed here.
+            </div>
+          </div>
+        )}
       </form>
     </div>
   );
