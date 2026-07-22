@@ -1,3 +1,4 @@
+import { ApiError } from "@/app/components/ApiError";
 import { queueAdd } from "@/app/actions";
 import { api, JobItem } from "@/lib/api";
 
@@ -59,11 +60,7 @@ export default async function InboxPage() {
   return (
     <div className="space-y-4">
       <h1 className="text-lg font-semibold text-white">Job Inbox</h1>
-      {error && (
-        <div className="rounded-lg border border-amber-800 bg-amber-950/40 p-4 text-amber-200 text-sm">
-          Could not reach the API ({error}).
-        </div>
-      )}
+      {error && <ApiError error={error} />}
       {!error && items.length === 0 && (
         <div className="text-sm text-gray-400">
           No jobs yet. Run the seed: <code>python -m app.seed.seed_data</code>.

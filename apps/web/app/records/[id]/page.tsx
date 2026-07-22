@@ -1,3 +1,4 @@
+import { ApiError } from "@/app/components/ApiError";
 import Link from "next/link";
 
 import { changeStatus } from "@/app/actions";
@@ -65,11 +66,7 @@ export default async function RecordDetail({
   }
 
   if (error || !rec) {
-    return (
-      <div className="rounded-lg border border-amber-800 bg-amber-950/40 p-4 text-amber-200 text-sm">
-        Could not load this record ({error})
-      </div>
-    );
+    return <ApiError error={error ?? "unknown error"} />;
   }
 
   return (

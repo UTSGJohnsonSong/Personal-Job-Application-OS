@@ -1,3 +1,4 @@
+import { ApiError } from "@/app/components/ApiError";
 import Link from "next/link";
 
 import { Chip, Metric, eligibilityTone, tierTone } from "@/app/components/ScoreBits";
@@ -111,11 +112,7 @@ export default async function RankingsPage() {
         </form>
       </div>
 
-      {error && (
-        <div className="rounded-lg border border-amber-800 bg-amber-950/40 p-4 text-amber-200 text-sm">
-          Could not load rankings ({error}).
-        </div>
-      )}
+      {error && <ApiError error={error} />}
 
       {!error && items.length === 0 && (
         <p className="text-sm text-gray-400">No jobs yet.</p>

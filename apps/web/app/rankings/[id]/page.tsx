@@ -1,3 +1,4 @@
+import { ApiError } from "@/app/components/ApiError";
 import Link from "next/link";
 
 import { Chip, Section, eligibilityTone, tierTone } from "@/app/components/ScoreBits";
@@ -39,11 +40,7 @@ export default async function RankingDetail({
   }
 
   if (error || !d) {
-    return (
-      <div className="rounded-lg border border-amber-800 bg-amber-950/40 p-4 text-amber-200 text-sm">
-        Could not load this job ({error}).
-      </div>
-    );
+    return <ApiError error={error ?? "unknown error"} />;
   }
 
   const w = d.why_it_ranks_here;

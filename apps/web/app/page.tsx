@@ -1,3 +1,4 @@
+import { ApiError } from "@/app/components/ApiError";
 import { api } from "@/lib/api";
 
 // Data is per-request from the API; never prerender at build time.
@@ -23,12 +24,7 @@ export default async function DashboardPage() {
   }
 
   if (error) {
-    return (
-      <div className="rounded-lg border border-amber-800 bg-amber-950/40 p-4 text-amber-200 text-sm">
-        Could not reach the API ({error}). Start it with{" "}
-        <code>uvicorn app.main:app --reload</code> in <code>apps/api</code>.
-      </div>
-    );
+    return <ApiError error={error} />;
   }
 
   const t = overview!.totals;

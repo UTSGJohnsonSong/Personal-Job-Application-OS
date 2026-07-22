@@ -1,3 +1,4 @@
+import { ApiError } from "@/app/components/ApiError";
 import Link from "next/link";
 
 import { queueRemove } from "@/app/actions";
@@ -116,11 +117,7 @@ export default async function QueuePage() {
         </p>
       </div>
 
-      {error && (
-        <div className="rounded-lg border border-amber-800 bg-amber-950/40 p-4 text-amber-200 text-sm">
-          Could not load the queue ({error})
-        </div>
-      )}
+      {error && <ApiError error={error} />}
 
       {!error && items.length === 0 && (
         <div className="text-sm text-gray-400">

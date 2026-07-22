@@ -1,3 +1,4 @@
+import { ApiError } from "@/app/components/ApiError";
 import { recordPreference } from "@/app/actions";
 import { Chip, Metric, eligibilityTone, tierTone } from "@/app/components/ScoreBits";
 import { ScoredJob, scoring } from "@/lib/scoring";
@@ -75,11 +76,7 @@ export default async function ComparePage({
   }
 
   if (error || !a || !b) {
-    return (
-      <div className="rounded-lg border border-amber-800 bg-amber-950/40 p-4 text-amber-200 text-sm">
-        Could not compare ({error}).
-      </div>
-    );
+    return <ApiError error={error ?? "unknown error"} />;
   }
 
   return (

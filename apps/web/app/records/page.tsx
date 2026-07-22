@@ -1,3 +1,4 @@
+import { ApiError } from "@/app/components/ApiError";
 import Link from "next/link";
 
 import { api } from "@/lib/api";
@@ -22,11 +23,7 @@ export default async function RecordsPage() {
         </p>
       </div>
 
-      {error && (
-        <div className="rounded-lg border border-amber-800 bg-amber-950/40 p-4 text-amber-200 text-sm">
-          Could not load records ({error})
-        </div>
-      )}
+      {error && <ApiError error={error} />}
 
       {!error && items.length === 0 && (
         <div className="text-sm text-gray-400">No application records yet.</div>

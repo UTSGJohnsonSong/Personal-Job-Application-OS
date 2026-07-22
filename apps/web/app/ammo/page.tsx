@@ -1,3 +1,4 @@
+import { ApiError } from "@/app/components/ApiError";
 import Link from "next/link";
 
 import { AmmoBlock, api } from "@/lib/api";
@@ -115,11 +116,7 @@ export default async function AmmoPage({
         ))}
       </div>
 
-      {error && (
-        <div className="rounded-lg border border-amber-800 bg-amber-950/40 p-4 text-amber-200 text-sm">
-          Could not load the library ({error})
-        </div>
-      )}
+      {error && <ApiError error={error} />}
 
       {!error && groups.length === 0 && (
         <div className="text-sm text-gray-400">
