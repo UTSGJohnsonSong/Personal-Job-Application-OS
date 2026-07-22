@@ -42,6 +42,16 @@ from app.models.personal import (  # noqa: F401
     StandardAnswer,
     WorkAuthorization,
 )
+from app.models.ranking_v2 import (  # noqa: F401
+    ApplicationPriorityScore,
+    CompanyEvidence,
+    CompanyPersonalOverride,
+    CompanyResearchRun,
+    CompanyScoreVersion,
+    LearningSuggestion,
+    PairwisePreference,
+    RoleClassificationRow,
+)
 from app.models.resume import (  # noqa: F401
     Document,
     ResumeBullet,
