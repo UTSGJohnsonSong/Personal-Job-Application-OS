@@ -1,0 +1,16 @@
+{
+  "jobs": [
+    {
+      "id": "ashby-777",
+      "title": "Machine Learning Engineer",
+      "location": "San Francisco, CA, United States",
+      "isRemote": false,
+      "employmentType": "FullTime",
+      "publishedAt": "2026-07-10T00:00:00Z",
+      "jobUrl": "https://jobs.ashbyhq.com/exampleco/ashby-777",
+      "applyUrl": "https://jobs.ashbyhq.com/exampleco/ashby-777/application",
+      "descriptionPlain": "Work on ML systems. PhD required. Experience with Python, PyTorch.",
+      "department": "AI"
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "jobs": [
+    {
+      "id": 1001,
+      "title": "Software Engineer, Backend",
+      "updated_at": "2026-07-15T12:00:00Z",
+      "absolute_url": "https://boards.greenhouse.io/exampleco/jobs/1001",
+      "location": {"name": "Toronto, ON, Canada"},
+      "departments": [{"name": "Engineering"}],
+      "content": "<p>We are hiring a Backend Engineer. Bachelor's degree required. 3+ years experience with Python and PostgreSQL. We are unable to provide visa sponsorship for this role.</p>"
+    },
+    {
+      "id": 1002,
+      "title": "Data Science Intern",
+      "updated_at": "2026-07-18T09:30:00Z",
+      "absolute_url": "https://boards.greenhouse.io/exampleco/jobs/1002",
+      "location": {"name": "Remote"},
+      "departments": [{"name": "Data"}],
+      "content": "<p>Internship for a data science student. Cover letter required. Tell us why do you want to join. Familiarity with Python and SQL.</p>"
+    }
+  ]
+}

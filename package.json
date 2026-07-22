@@ -1,0 +1,19 @@
+{
+  "name": "personal-job-application-os",
+  "private": true,
+  "version": "0.1.0",
+  "description": "A personal job-application operating system: first-party job discovery, understanding the candidate, eligibility, explainable ranking, assisted preparation, per-application human confirmation, tracking, and outcome-driven learning.",
+  "workspaces": [
+    "apps/web",
+    "apps/extension",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:web": "npm run dev --workspace apps/web",
+    "build:web": "npm run build --workspace apps/web",
+    "lint:web": "npm run lint --workspace apps/web"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

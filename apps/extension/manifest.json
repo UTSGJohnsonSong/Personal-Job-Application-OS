@@ -1,0 +1,24 @@
+{
+  "manifest_version": 3,
+  "name": "Job Application OS — Assist",
+  "version": "0.1.0",
+  "description": "Deterministic form assist for application pages. Fills confirmed fields, flags uncertain ones, and ALWAYS stops before final submit.",
+  "permissions": ["activeTab", "scripting", "storage"],
+  "host_permissions": [
+    "https://boards.greenhouse.io/*",
+    "https://jobs.lever.co/*",
+    "https://jobs.ashbyhq.com/*"
+  ],
+  "action": { "default_popup": "popup.html", "default_title": "Job OS Assist" },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://boards.greenhouse.io/*",
+        "https://jobs.lever.co/*",
+        "https://jobs.ashbyhq.com/*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}

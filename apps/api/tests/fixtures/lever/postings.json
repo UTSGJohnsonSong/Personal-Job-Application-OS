@@ -1,0 +1,12 @@
+[
+  {
+    "id": "abc-123",
+    "text": "Senior Frontend Engineer",
+    "hostedUrl": "https://jobs.lever.co/exampleco/abc-123",
+    "applyUrl": "https://jobs.lever.co/exampleco/abc-123/apply",
+    "categories": {"location": "Vancouver, BC", "team": "Frontend", "commitment": "Full-time"},
+    "createdAt": 1752566400000,
+    "descriptionPlain": "Build our web app with React and TypeScript. 5+ years experience. Master's preferred.",
+    "workplaceType": "hybrid"
+  }
+]
