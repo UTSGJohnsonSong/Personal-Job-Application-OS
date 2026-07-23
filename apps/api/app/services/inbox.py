@@ -34,7 +34,7 @@ from app.models.company_inbox import (
     RoleSimilarityGroup,
 )
 from app.models.ranking_v2 import ApplicationPriorityScore
-from app.models.sourcing import Company, Job
+from app.models.sourcing import Company, Job, JobLocation
 from app.models.user import User
 
 CALCULATION_VERSION = "inbox-v1"
@@ -80,6 +80,16 @@ async def load_companies(session: AsyncSession, user_id: str) -> list[CompanyEnt
     for s in rows:
         scores.setdefault(s.job_id, s)
 
+    # Locations live in job_locations. Reading them from job.raw["locationsText"]
+    # only ever worked for Workday, so every Ashby, Lever and Greenhouse posting
+    # reported no location and no Canadian roles at all.
+    locations: dict[str, str] = {}
+    for loc in (
+        await session.execute(select(JobLocation))
+    ).scalars().all():
+        if loc.raw_text and loc.job_id not in locations:
+            locations[loc.job_id] = loc.raw_text
+
     applied_job_ids = {
         a.job_id for a in (
             await session.execute(
@@ -111,9 +121,7 @@ async def load_companies(session: AsyncSession, user_id: str) -> list[CompanyEnt
             )
             grouped[cid] = entry
 
-        location = ""
-        if job.raw and isinstance(job.raw, dict):
-            location = str(job.raw.get("locationsText") or "")
+        location = locations.get(job.id, "")
         entry.roles.append(RoleEntry(
             job_id=job.id,
             title=job.title,

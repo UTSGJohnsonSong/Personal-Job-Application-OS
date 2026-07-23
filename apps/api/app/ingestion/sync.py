@@ -2,14 +2,14 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.logging import get_logger
 from app.ingestion.freshness import compute_freshness
 from app.ingestion.normalize import infer_remote_mode, normalize_title
 from app.models.ops import ConnectorFailure
-from app.models.sourcing import Job, JobSnapshot, JobSource
+from app.models.sourcing import Job, JobLocation, JobSnapshot, JobSource
 from app.schemas.connector import ConnectorResult, RawJob
 
 log = get_logger("ingestion.sync")
@@ -20,6 +20,33 @@ async def _find_existing(session: AsyncSession, source_id: str, raw: RawJob) -> 
         Job.source_id == source_id, Job.source_job_id == raw.source_job_id
     )
     return (await session.execute(stmt)).scalar_one_or_none()
+
+
+async def _replace_locations(session: AsyncSession, job: Job, raw: RawJob) -> None:
+    """Persist the connector's parsed locations.
+
+    These were previously dropped on the floor: connectors parsed them, and
+    ingestion never wrote a JobLocation row. Nothing downstream could tell a
+    Toronto co-op from a Singapore one, so eligibility and the Canada filters
+    were operating on no location data at all.
+
+    Rewritten rather than merged, because the board is the authority — a
+    posting that moved cities should not keep its old one.
+    """
+    await session.execute(delete(JobLocation).where(JobLocation.job_id == job.id))
+    for loc in raw.locations:
+        text = (loc.raw_text or "").strip()
+        if not text:
+            continue
+        session.add(
+            JobLocation(
+                job_id=job.id,
+                raw_text=text[:255],
+                city=(loc.city or None),
+                region=(loc.region or None),
+                country=(loc.country or None),
+            )
+        )
 
 
 async def _assign_duplicate_group(session: AsyncSession, job: Job) -> None:
@@ -104,6 +131,7 @@ async def ingest_result(
                 )
                 session.add(job)
                 await session.flush()
+                await _replace_locations(session, job, raw)
                 await _assign_duplicate_group(session, job)
                 session.add(
                     JobSnapshot(
@@ -120,6 +148,7 @@ async def ingest_result(
                 existing.last_verified_at = now
                 existing.source_status = raw.source_status
                 existing.freshness_score = fresh
+                await _replace_locations(session, existing, raw)
                 if raw.content_hash and raw.content_hash != existing.content_hash:
                     existing.content_hash = raw.content_hash
                     existing.title = raw.title

@@ -119,7 +119,11 @@ PARTIAL: list[OfficialSource] = [
         observed_jobs=867, observed_canada=4, observed_student_canada=0,
         note="867 postings but only 4 Canadian, all sales. SAP's Waterloo and "
              "Vancouver co-op intake is not on this board — its early-talent "
-             "programme is published separately and still needs locating."),
+             "programme is published separately and still needs locating. "
+             "Second known gap: the connector recovers a location for only 17 "
+             "of 866 postings here, while reading 16 of 16 on the Bank of "
+             "Canada's SuccessFactors site, so this is site-specific markup we "
+             "do not parse yet. Treat SAP's Canadian counts as a floor."),
 ]
 
 # ---------------------------------------------------------------------------
