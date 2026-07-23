@@ -271,6 +271,53 @@ VERIFIED: list[OfficialSource] = [
         "notion", SourceStatus.VERIFIED, "https://www.notion.com/careers",
         "ashby", "notion",
         observed_jobs=138, observed_canada=0, observed_student_canada=0),
+    # --- second wave: companies with no source entry at all (never had a
+    # profiles.py `boards=` guess to begin with), probed 2026-07-23 with
+    # scripts/probe_batch2.py. ~9% hit rate on blind slug guesses, expected
+    # since these weren't pre-researched the way the first 28 were.
+    OfficialSource(
+        "kepler", SourceStatus.VERIFIED, "https://kepler.space/careers",
+        "lever", "kepler",
+        observed_jobs=36, observed_canada=32, observed_student_canada=3,
+        note="FPGA, Marketing, and Systems Engineering interns open in "
+             "Toronto at probe time."),
+    OfficialSource(
+        "block", SourceStatus.VERIFIED, "https://block.xyz/careers",
+        "greenhouse", "block",
+        observed_jobs=208, observed_canada=22, observed_student_canada=1,
+        note="A PhD/Graduate co-op (Applied Research, Toronto) is open."),
+    OfficialSource(
+        "gameloft", SourceStatus.VERIFIED, "https://www.gameloft.com/en/careers",
+        "smartrecruiters", "Gameloft",
+        observed_jobs=60, observed_canada=15, observed_student_canada=0),
+    OfficialSource(
+        "maple", SourceStatus.VERIFIED, "https://www.getmaple.ca/careers",
+        "lever", "getmaple",
+        observed_jobs=12, observed_canada=12, observed_student_canada=0),
+    OfficialSource(
+        "twilio2", SourceStatus.VERIFIED, "https://www.twilio.com/en-us/company/jobs",
+        "greenhouse", "twilio",
+        observed_jobs=180, observed_canada=7, observed_student_canada=0),
+    OfficialSource(
+        "bluecat", SourceStatus.VERIFIED, "https://bluecatnetworks.com/careers/",
+        "lever", "bluecatnetworks",
+        observed_jobs=24, observed_canada=5, observed_student_canada=0),
+    OfficialSource(
+        "cira", SourceStatus.VERIFIED, "https://www.cira.ca/about-cira/careers",
+        "bamboohr", "cira",
+        observed_jobs=9, observed_canada=9, observed_student_canada=0,
+        note="Small Ottawa board (Canada's .ca registry operator); titles "
+             "checked plausible, not a stray same-slug company."),
+    OfficialSource(
+        "thinkific", SourceStatus.VERIFIED, "https://www.thinkific.com/careers/",
+        "greenhouse", "thinkific",
+        observed_jobs=3, observed_canada=3, observed_student_canada=0,
+        note="Quiet board, all 'Distributed - Canada' roles."),
+    OfficialSource(
+        "touchbistro", SourceStatus.VERIFIED, "https://www.touchbistro.com/careers/",
+        "greenhouse", "touchbistro",
+        observed_jobs=1, observed_canada=1, observed_student_canada=0,
+        note="Single open Toronto req at probe time."),
 ]
 
 # ---------------------------------------------------------------------------
