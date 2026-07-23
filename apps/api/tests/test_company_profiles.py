@@ -12,9 +12,11 @@ import pytest
 from app.company.access import (
     CanadaAccess,
     CaptureStatus,
+    EligibilityScope,
     LocationClass,
     assess_access,
     classify_location,
+    is_eligible,
 )
 from app.company.gate import GATED_OUT, Gate, evaluate
 from app.company.profiles import (
@@ -23,8 +25,11 @@ from app.company.profiles import (
     EXCLUSIONS,
     PERSONAL_BANDS,
     TIER_BANDS,
+    VALUE_BANDS,
     Posture,
+    View,
     adjustments,
+    ranked,
     resolve,
     tier_counts,
 )
@@ -214,6 +219,48 @@ def test_worth_forcing_identifies_where_a_referral_pays() -> None:
         assert p.value_score - p.access_score >= 20, key
 
 
+def test_the_two_views_genuinely_differ() -> None:
+    """If they agreed there would be no reason to offer both."""
+    apply_top = [p.key for p in ranked(View.APPLY)[:30]]
+    value_top = [p.key for p in ranked(View.VALUE)[:30]]
+    assert len(set(apply_top) ^ set(value_top)) >= 10
+    # OpenAI is the clearest case: second by value, nowhere near by priority.
+    assert ranked(View.VALUE)[1].key == "openai"
+    assert BY_KEY["openai"].personal_tier == "D"
+
+
+def test_value_view_never_reads_as_a_second_apply_queue() -> None:
+    """Every row carries the action it implies, so it cannot be misread."""
+    for p in ranked(View.VALUE)[:30]:
+        action = p.value_view_action
+        assert action in ("referral_or_outreach", "already_in_apply_queue", "watch")
+        if p.posture is Posture.WORTH_FORCING:
+            assert action == "referral_or_outreach", p.key
+
+
+def test_us_remote_is_not_assumed_eligible() -> None:
+    """He is a Canadian PR with no US work authorisation."""
+    assert is_eligible("Toronto, ON", EligibilityScope.CANADA_ONLY)
+    assert not is_eligible("Remote - US", EligibilityScope.CANADA_PLUS_REMOTE)
+    assert not is_eligible("San Francisco, CA", EligibilityScope.INCLUDE_NEEDS_REVIEW)
+    # Remote explicitly open to Canada is reachable; ambiguous needs triage.
+    assert is_eligible("Remote - Canada", EligibilityScope.CANADA_PLUS_REMOTE)
+    assert not is_eligible("North America (Remote)",
+                           EligibilityScope.CANADA_PLUS_REMOTE)
+    assert is_eligible("North America (Remote)",
+                       EligibilityScope.INCLUDE_NEEDS_REVIEW)
+
+
+def test_scopes_are_strictly_widening() -> None:
+    samples = ["Toronto, ON", "Remote - Canada", "North America (Remote)",
+               "Remote - US", "Seattle, WA", ""]
+    counts = [sum(1 for s in samples if is_eligible(s, sc))
+              for sc in (EligibilityScope.CANADA_ONLY,
+                         EligibilityScope.CANADA_PLUS_REMOTE,
+                         EligibilityScope.INCLUDE_NEEDS_REVIEW)]
+    assert counts == sorted(counts)
+
+
 def test_offer_threshold_separates_platforms_from_floors() -> None:
     assert BY_KEY["canadapost"].worth_taking_if_offered is False
     for key in ("openai", "anthropic", "cohere", "wealthsimple", "shopify"):
@@ -255,7 +302,7 @@ def test_adjustments_are_enumerable() -> None:
 
 
 def test_band_definitions_are_ordered_and_distinct() -> None:
-    for bands in (TIER_BANDS, PERSONAL_BANDS):
+    for bands in (TIER_BANDS, PERSONAL_BANDS, VALUE_BANDS):
         floors = [f for f, _ in bands]
         assert floors == sorted(floors, reverse=True)
         assert len({t for _, t in bands}) == 5

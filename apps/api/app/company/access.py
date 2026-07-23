@@ -75,6 +75,35 @@ def classify_location(raw: str) -> LocationClass:
     return LocationClass.UNKNOWN_LOCATION
 
 
+class EligibilityScope(StrEnum):
+    """How wide to cast the net. A filter on postings, not on companies, and
+    it applies to every ranking view rather than belonging to any one of them.
+    """
+
+    CANADA_ONLY = "canada_only"
+    CANADA_PLUS_REMOTE = "canada_plus_remote"   # + remote roles open to Canada
+    INCLUDE_NEEDS_REVIEW = "include_needs_review"  # + ambiguous, for manual triage
+
+
+# The candidate is a Canadian PR with no US work authorisation, so a US remote
+# posting is only reachable when the employer explicitly opens it to Canada —
+# which usually means a Canadian entity or an employer of record. "Remote (US)"
+# is not eligible however permissive it sounds, and is never silently included.
+_SCOPE_CLASSES: dict[EligibilityScope, frozenset[str]] = {
+    EligibilityScope.CANADA_ONLY: frozenset({"canada_explicit"}),
+    EligibilityScope.CANADA_PLUS_REMOTE: frozenset({
+        "canada_explicit", "canada_remote"}),
+    EligibilityScope.INCLUDE_NEEDS_REVIEW: frozenset({
+        "canada_explicit", "canada_remote", "canada_possible",
+        "americas_remote_needs_review"}),
+}
+
+
+def is_eligible(raw_location: str, scope: EligibilityScope) -> bool:
+    """Whether a posting's location is reachable under the chosen scope."""
+    return classify_location(raw_location).value in _SCOPE_CLASSES[scope]
+
+
 @dataclass(frozen=True)
 class AccessAssessment:
     status: CanadaAccess

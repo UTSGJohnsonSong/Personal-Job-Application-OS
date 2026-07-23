@@ -280,6 +280,23 @@ class CompanyProfile:
         """An offer decision uses value alone; access has already resolved."""
         return self.value_score >= OFFER_ACCEPT_THRESHOLD
 
+    @property
+    def value_tier(self) -> str:
+        return band(self.value_score, VALUE_BANDS)
+
+    @property
+    def value_view_action(self) -> str:
+        """What the value ranking is telling him to DO about this company.
+
+        Without this the value list reads as a second queue to apply into,
+        which would send applications at companies that will not answer.
+        """
+        if self.posture is Posture.WORTH_FORCING:
+            return "referral_or_outreach"     # applying cold will not reach it
+        if self.access_score >= 70.0:
+            return "already_in_apply_queue"
+        return "watch"
+
 
 def C(key: str, name: str, *, ca: int, us: int, cn: int, depth: int, role: int,
       domain: int, founder: int, prog: int, why: str, tech: int = 1,
@@ -1352,10 +1369,37 @@ def resolve(name_or_board: str) -> CompanyProfile | None:
     return BY_KEY[key] if key else None
 
 
-def ranked(by: str = "personal") -> list[CompanyProfile]:
-    if by == "personal":
-        return sorted(ALL_PROFILES, key=lambda p: (-p.personal_score, p.name))
-    return sorted(ALL_PROFILES, key=lambda p: (-p.platform_score, p.name))
+class View(StrEnum):
+    """The two rankings are named for the action they drive, not the formula.
+
+    They answer different questions and must not be presented as competing
+    versions of one list. Sorting by value alone puts OpenAI second, and an
+    application there is time spent for a near-certain no; sorting by priority
+    buries it, which is right for the application queue and wrong for deciding
+    where a referral is worth chasing.
+    """
+
+    APPLY = "apply"      # sqrt(value x access): where applications should go
+    VALUE = "value"      # value alone: what is worth wanting, however reachable
+    PLATFORM = "platform"  # the company on its own terms
+
+
+# Value has a different spread from the blended priority score, so it needs its
+# own cut points rather than reusing the priority bands.
+VALUE_BANDS: tuple[tuple[float, str], ...] = (
+    (85.0, "S"), (74.0, "A"), (64.0, "B"), (52.0, "C"), (0.0, "D"),
+)
+
+
+def ranked(by: str = View.APPLY) -> list[CompanyProfile]:
+    keys = {
+        View.APPLY: lambda p: (-p.personal_score, p.name),
+        View.VALUE: lambda p: (-p.value_score, p.name),
+        View.PLATFORM: lambda p: (-p.platform_score, p.name),
+        # Retained so existing callers keep working.
+        "personal": lambda p: (-p.personal_score, p.name),
+    }
+    return sorted(ALL_PROFILES, key=keys.get(by, keys[View.APPLY]))
 
 
 def tier_counts(by: str = "personal") -> dict[str, int]:
