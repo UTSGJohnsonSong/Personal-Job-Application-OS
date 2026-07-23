@@ -26,6 +26,7 @@ from app.company.portfolio import (
     global_priority_queue,
     group_by_tier,
 )
+from app.company.profiles import resolve
 from app.models.application import Application
 from app.models.company_inbox import (
     CompanyRoleRanking,
@@ -109,13 +110,28 @@ async def load_companies(session: AsyncSession, user_id: str) -> list[CompanyEnt
         if entry is None:
             comp = companies.get(cid)
             checked = job.last_verified_at or job.last_seen_at
+            # The registry is the authority on tier. It is a dated, reviewed
+            # assessment; the per-score company_tier is a by-product of however
+            # much board evidence happened to be gathered, which is why every
+            # company here read "D? (unrated)" while the registry had them
+            # rated S through D.
+            profile = resolve(comp.normalized_name if comp else "") or (
+                resolve(comp.name) if comp else None
+            )
             entry = CompanyEntry(
                 company_id=cid,
                 name=comp.name if comp else "Unknown company",
-                tier=score.company_tier or "D",
-                tier_display=score.company_tier_display or score.company_tier or "D",
-                provisional="?" in (score.company_tier_display or ""),
-                platform_value=score.company_platform_value,
+                tier=profile.personal_tier if profile else (score.company_tier or "D"),
+                tier_display=(
+                    profile.personal_tier if profile
+                    else score.company_tier_display or score.company_tier or "D"
+                ),
+                provisional=(
+                    False if profile else "?" in (score.company_tier_display or "")
+                ),
+                platform_value=(
+                    profile.platform_score if profile else score.company_platform_value
+                ),
                 evidence_coverage=score.evidence_coverage,
                 last_checked=checked.isoformat() if checked else None,
             )
