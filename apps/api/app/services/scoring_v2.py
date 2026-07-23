@@ -18,7 +18,7 @@ from app.company.intelligence import (
     SourceGrade,
     assess_company,
 )
-from app.eligibility.engine import evaluate
+from app.eligibility.engine import detect_seniority, evaluate
 from app.models.personal import CandidateSkill
 from app.models.ranking_v2 import (
     ApplicationPriorityScore,
@@ -124,7 +124,11 @@ async def score_job(
             select(JobLocation.raw_text).where(JobLocation.job_id == job.id).limit(1)
         )
     ).scalar_one_or_none()
-    gate = evaluate_gate(evaluate(jd, facts, location=location))
+    # Seniority comes from the title, which the JD-text parser never sees, so
+    # it is detected here and passed in. This is what keeps a "Senior Manager,
+    # 10+ years" role out of a co-op student's eligible set.
+    seniority = detect_seniority(job.title, jd.years_experience)
+    gate = evaluate_gate(evaluate(jd, facts, location=location, seniority=seniority))
 
     company = assess_company(await _company_evidence(session, job.company_id))
     role = classify_role(job.title, description)

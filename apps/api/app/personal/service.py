@@ -75,11 +75,17 @@ async def build_candidate_facts(session: AsyncSession, user_id: str) -> Candidat
             select(ApplicationPreference).where(ApplicationPreference.user_id == user_id)
         )
     ).scalars().first()
-    if pref and pref.target_roles:
-        # employment-type targets may be embedded in preferences.weight_overrides
-        et = pref.weight_overrides.get("target_employment_types") if pref.weight_overrides else None
+    if pref and pref.weight_overrides:
+        wo = pref.weight_overrides
+        et = wo.get("target_employment_types")
         if et:
             facts.target_employment_types = set(et)
+        ts = wo.get("target_seniority")
+        if ts:
+            facts.target_seniority = set(ts)
+        ye = wo.get("years_experience")
+        if ye is not None:
+            facts.years_experience = float(ye)
 
     return facts
 

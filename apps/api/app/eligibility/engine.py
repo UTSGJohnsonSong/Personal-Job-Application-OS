@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from enum import StrEnum
 
@@ -27,6 +28,11 @@ class CandidateFacts:
     needs_sponsorship: bool | None = None
     target_employment_types: set[str] = field(default_factory=set)
     years_experience: float | None = None
+    # The seniority levels the candidate is actually targeting. For a co-op
+    # student this is {intern, co_op, new_grad, entry}. Without it the gate had
+    # no basis to reject a "Senior Manager, 10+ years" role, which is how such
+    # roles reached a student's inbox marked eligible.
+    target_seniority: set[str] = field(default_factory=set)
 
 
 @dataclass
@@ -153,8 +159,104 @@ def _check_location(location: str | None, facts: CandidateFacts) -> CheckOutcome
         detail=f"location {location!r} not recognised as reachable")
 
 
+# Seniority ladder, low to high. A co-op student targets the bottom rungs;
+# anything from "mid" up is out of reach this cycle.
+_SENIORITY_ORDER = {
+    "intern": 0, "co_op": 0, "new_grad": 1, "entry": 1, "junior": 1,
+    "mid": 2, "senior": 3, "staff": 4, "principal": 4, "lead": 3,
+    "manager": 4, "director": 5, "vp": 6, "executive": 7,
+}
+# Title markers. Intern/co-op/new-grad are checked FIRST, because "New Grad
+# Software Engineer" and "Senior Software Engineer Intern" must not be read as
+# senior. Order matters within this list.
+_SENIORITY_MARKERS: list[tuple[re.Pattern[str], str]] = [
+    (re.compile(r"\b(intern|internship|co-?op)\b", re.I), "intern"),
+    (re.compile(r"\b(new\s?grad|university\s+grad|campus|early\s+career|"
+                r"graduate\s+(program|analyst|engineer)|apprentice)\b", re.I), "new_grad"),
+    (re.compile(r"\b(junior|jr\.?|entry[-\s]?level|associate)\b", re.I), "junior"),
+    (re.compile(r"\b(chief|\bC[EFTOI]O\b|president)\b", re.I), "executive"),
+    (re.compile(r"\b(vice\s+president|\bVP\b|\bSVP\b|\bEVP\b|head\s+of)\b", re.I), "vp"),
+    (re.compile(r"\b(director)\b", re.I), "director"),
+    (re.compile(r"\b(principal|staff|distinguished|architect)\b", re.I), "principal"),
+    (re.compile(r"\b(manager|mgr\.?|team\s+lead|tech\s+lead)\b", re.I), "manager"),
+    (re.compile(r"\b(senior|sr\.?|lead)\b", re.I), "senior"),
+]
+
+
+def detect_seniority(title: str | None, years_required: float | None = None) -> str | None:
+    """A role's seniority from its title.
+
+    Title only. A stated years requirement is deliberately NOT folded in here —
+    the experience check owns that, with a gradient (a small overshoot passes, a
+    large one fails), so a plain "Data Analyst, 4 years" is a stretch to review
+    rather than a hard mid-level rejection. `years_required` is accepted for a
+    stable signature and callers that want a combined signal, but is unused.
+
+    Returns None when the title carries no level marker — a plain "Data Analyst"
+    — which the gate treats as unknown rather than guessing junior or senior.
+    """
+    text = title or ""
+    for pattern, level in _SENIORITY_MARKERS:
+        if pattern.search(text):
+            return level
+    return None
+
+
+def _check_seniority(
+    seniority: str | None, facts: CandidateFacts
+) -> CheckOutcome | None:
+    """Is the role at a level the candidate is actually targeting?
+
+    A hard check: a co-op student cannot hold a Senior Manager or Director role
+    however much he might want to, so it belongs with work authorisation and
+    degree, not with the soft preference signals.
+    """
+    if not facts.target_seniority or seniority is None:
+        return None
+    role_rank = _SENIORITY_ORDER.get(seniority)
+    if role_rank is None:
+        return None
+    ceiling = max(_SENIORITY_ORDER.get(s, 0) for s in facts.target_seniority)
+    if role_rank <= ceiling:
+        return CheckOutcome("seniority", "pass", True, seniority,
+                            f"targets {sorted(facts.target_seniority)}")
+    return CheckOutcome(
+        "seniority", "fail", True, seniority,
+        f"targets {sorted(facts.target_seniority)}",
+        f"role is {seniority}, above the candidate's current level")
+
+
+def _check_experience(jd: ParsedJD, facts: CandidateFacts) -> CheckOutcome | None:
+    """Does the candidate meet a stated years-of-experience requirement?
+
+    Only fires on a concrete number in the JD. A small overshoot is tolerated
+    (requirements are usually aspirational), but a requirement far above what
+    he has — the 10+ years on that sales-manager role — is a hard fail.
+    """
+    required = jd.years_experience
+    if required is None or facts.years_experience is None:
+        return None
+    have = facts.years_experience
+    ev = next((r.evidence for r in jd.requirements
+               if r.field == "years_experience"), f"{required:g} years")
+    if have + 1.0 >= required:
+        return CheckOutcome("experience", "pass", False, ev,
+                            f"has ~{have:g} years")
+    if required >= have + 4.0:
+        return CheckOutcome(
+            "experience", "fail", True, ev, f"has ~{have:g} years",
+            f"requires {required:g} years")
+    # Between one and four years short: reachable but a stretch.
+    return CheckOutcome(
+        "experience", "unknown", True, ev, f"has ~{have:g} years",
+        f"requires {required:g} years — a stretch, worth a human check")
+
+
 def evaluate(
-    jd: ParsedJD, facts: CandidateFacts, location: str | None = None
+    jd: ParsedJD,
+    facts: CandidateFacts,
+    location: str | None = None,
+    seniority: str | None = None,
 ) -> EligibilityReport:
     """Deterministic aggregation. See docs/ELIGIBILITY_ENGINE.md."""
     checks = [
@@ -164,6 +266,8 @@ def evaluate(
             _check_degree(jd, facts),
             _check_employment_type(jd, facts),
             _check_location(location, facts),
+            _check_seniority(seniority, facts),
+            _check_experience(jd, facts),
         )
         if c is not None
     ]
