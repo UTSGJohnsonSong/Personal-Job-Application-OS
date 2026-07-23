@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from app.connectors.ashby import AshbyConnector
+from app.connectors.bamboohr import BambooHrConnector
 from app.connectors.base import Connector
 from app.connectors.generic import GenericAtsConnector
 from app.connectors.greenhouse import GreenhouseConnector
@@ -24,6 +25,7 @@ _REGISTRY: dict[str, Connector] = {
         SmartRecruitersConnector(),
         WorkdayConnector(),
         OracleOrcConnector(),
+        BambooHrConnector(),
         # Generic employer career pages
         JsonLdCareerConnector(),
         SitemapCareerConnector(),

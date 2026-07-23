@@ -160,19 +160,26 @@ GOVERNMENT: list[SourceSpec] = [
     ),
     SourceSpec(
         "city_of_toronto", "City of Toronto", "government", A.PUBLIC_PAGE, 2,
-        C.ALREADY_CANONICAL, "oracle_orc", M.PROBE,
-        "PROBED 2026-07-22: jobs.toronto.ca reachable but JS-rendered. Likely "
-        "Oracle ORC underneath — needs the tenant host and site id.",
+        C.ALREADY_CANONICAL, "jsonld", M.NEEDS_ENDPOINT,
+        "DISCOVERED 2026-07-22 by following toronto.ca/city-government/jobs: the "
+        "real portal is jobs.toronto.ca running SAP SuccessFactors (not Oracle, "
+        "as first assumed). Needs the SuccessFactors search endpoint.",
+        {"portal": "https://jobs.toronto.ca/jobsatcity/", "vendor": "successfactors"},
     ),
     SourceSpec(
         "ttc", "Toronto Transit Commission", "government", A.PUBLIC_PAGE, 2,
         C.ALREADY_CANONICAL, "jsonld", M.PROBE,
-        "PROBED 2026-07-22: careers.ttc.ca does not resolve; host unknown.",
+        "PROBED 2026-07-22: careers.ttc.ca does not resolve; ttc.ca/careers and "
+        "ttc.ca/about-the-ttc/careers both return 404. Real entry point still "
+        "unknown — needs a human to locate it on ttc.ca.",
     ),
     SourceSpec(
         "metrolinx", "Metrolinx", "government", A.PUBLIC_PAGE, 2,
-        C.ALREADY_CANONICAL, "jsonld", M.PROBE,
-        "PROBED 2026-07-22: careers.metrolinx.com does not resolve.",
+        C.ALREADY_CANONICAL, "oracle_orc", M.PROBE,
+        "DISCOVERED 2026-07-22 from metrolinx.com/en/about-us/careers: the page "
+        "references Oracle Cloud Recruiting in pod ca2. The tenant host is still "
+        "unknown — four guesses failed, and guessing is explicitly not the method.",
+        {"vendor": "oracle_orc", "pod": "ca2"},
     ),
 ]
 
@@ -219,9 +226,12 @@ ECOSYSTEM: list[SourceSpec] = [
         "PROBED 2026-07-22: jobs.communitech.ca does not resolve.",
     ),
     SourceSpec(
-        "mars", "MaRS Discovery District", "ecosystem", A.PUBLIC_PAGE, 3,
-        C.RESOLVE_TO_EMPLOYER, "jsonld", M.NEEDS_ENDPOINT,
-        "PROBED 2026-07-22: reachable but no JSON-LD job postings found.",
+        "mars", "MaRS Discovery District", "ecosystem", A.PUBLIC_API, 2,
+        C.ALREADY_CANONICAL, "bamboohr", M.LIVE,
+        "VERIFIED 2026-07-22: marsdd.bamboohr.com/careers/list returns real "
+        "Toronto postings. Found by following the official careers page to its "
+        "ATS vendor instead of guessing.",
+        {"external_id": "marsdd"},
     ),
     SourceSpec(
         "vector_talent", "Vector Institute Talent Hub", "ecosystem",

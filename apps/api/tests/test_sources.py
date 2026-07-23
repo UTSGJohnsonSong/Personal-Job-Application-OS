@@ -58,17 +58,19 @@ def test_blocked_source_is_not_scraped():
 
 
 def test_aggregators_must_resolve_to_the_employer():
+    # MaRS moved to first-party: its official careers page resolves to its own
+    # BambooHR board, so it is no longer discovery-only.
     for key in ("linkedin", "indeed_email", "wellfound", "job_bank", "techto",
-                "communitech", "mars", "vector_talent", "dmz"):
+                "communitech", "vector_talent", "dmz"):
         assert BY_KEY[key].canonical_policy is CanonicalPolicy.RESOLVE_TO_EMPLOYER
         assert requires_canonical_resolution(key)
 
 
 def test_first_party_ats_are_already_canonical():
     for key in ("greenhouse", "lever", "ashby", "smartrecruiters", "workday",
-                "taleo_orc"):
+                "taleo_orc", "mars"):
         assert BY_KEY[key].canonical_policy is CanonicalPolicy.ALREADY_CANONICAL
-        assert BY_KEY[key].priority == 1
+        assert BY_KEY[key].priority <= 2
 
 
 def test_every_catalog_connector_is_registered():
