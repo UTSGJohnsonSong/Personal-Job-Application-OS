@@ -101,7 +101,61 @@ def _check_employment_type(jd: ParsedJD, facts: CandidateFacts) -> CheckOutcome 
     )
 
 
-def evaluate(jd: ParsedJD, facts: CandidateFacts) -> EligibilityReport:
+def _check_location(location: str | None, facts: CandidateFacts) -> CheckOutcome | None:
+    """Can the candidate legally hold a job posted at this location?
+
+    This check was missing entirely. `work_auth_countries` existed on the
+    candidate facts and nothing ever compared a posting's location against it,
+    so a Canadian PR saw "Eligibility PASS" on roles in Dubai, Brazil and
+    Uruguay — the gate was reading only the JD text and never the location.
+
+    "Remote" is not a licence: remote roles are almost always scoped to
+    countries where the employer has an entity, and the location string is that
+    scope. An unreadable location stays unknown rather than passing.
+    """
+    if not facts.work_auth_countries:
+        return None  # nothing declared; the engine must not guess
+    if not location or not location.strip():
+        return CheckOutcome(
+            name="location", outcome="unknown", is_hard=True,
+            detail="posting has no location; cannot confirm work authorisation")
+
+    from app.company.access import LocationClass, classify_location
+
+    cls = classify_location(location)
+    authorised_in_canada = {c.upper() for c in facts.work_auth_countries} & {"CA", "CAN"}
+
+    if cls in (LocationClass.CANADA_EXPLICIT, LocationClass.CANADA_REMOTE):
+        if authorised_in_canada:
+            return CheckOutcome(
+                name="location", outcome="pass", is_hard=True,
+                evidence_jd=location, detail="posting is in Canada")
+        return CheckOutcome(
+            name="location", outcome="fail", is_hard=True, evidence_jd=location,
+            detail="posting is in Canada and no Canadian work authorisation")
+
+    if cls is LocationClass.CANADA_NOT_ELIGIBLE:
+        return CheckOutcome(
+            name="location", outcome="fail", is_hard=True, evidence_jd=location,
+            detail=f"posting requires authorisation for {location}, which the "
+                   "candidate does not hold")
+
+    if cls in (LocationClass.AMERICAS_REMOTE_NEEDS_REVIEW,
+               LocationClass.CANADA_POSSIBLE):
+        return CheckOutcome(
+            name="location", outcome="unknown", is_hard=True,
+            evidence_jd=location,
+            detail="broad or remote scope; needs a human to confirm Canada is "
+                   "included")
+
+    return CheckOutcome(
+        name="location", outcome="unknown", is_hard=True, evidence_jd=location,
+        detail=f"location {location!r} not recognised as reachable")
+
+
+def evaluate(
+    jd: ParsedJD, facts: CandidateFacts, location: str | None = None
+) -> EligibilityReport:
     """Deterministic aggregation. See docs/ELIGIBILITY_ENGINE.md."""
     checks = [
         c
@@ -109,6 +163,7 @@ def evaluate(jd: ParsedJD, facts: CandidateFacts) -> EligibilityReport:
             _check_sponsorship(jd, facts),
             _check_degree(jd, facts),
             _check_employment_type(jd, facts),
+            _check_location(location, facts),
         )
         if c is not None
     ]

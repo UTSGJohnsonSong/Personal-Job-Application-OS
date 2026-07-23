@@ -48,12 +48,45 @@ class LocationClass(StrEnum):
 _CANADA = re.compile(
     r"(toronto|canada|ontario|vancouver|montr|ottawa|waterloo|calgary|mississauga|"
     r"edmonton|halifax|winnipeg|kitchener|burnaby|markham|brampton|quebec|"
+    r"new brunswick|nova scotia|newfoundland|saskatchewan|manitoba|"
+    r"prince edward island|yukon|nunavut|northwest territories|"
+    r"saskatoon|regina|victoria|kelowna|london, on|windsor|guelph|barrie|"
     r"\bON\b|\bBC\b|\bAB\b|\bQC\b|\bNS\b|\bMB\b)", re.I)
 _US_ONLY = re.compile(
-    r"(united states|\bU\.?S\.?A?\b|california|new york|texas|seattle|boston|"
-    r"austin|denver|chicago|atlanta|san francisco)", re.I)
+    r"(united states|\bU\.?S\.?A?\b|\bD\.?C\.?\b|washington|"
+    r"alabama|alaska|arizona|arkansas|california|colorado|connecticut|delaware|"
+    r"florida|georgia|hawaii|idaho|illinois|indiana|iowa|kansas|kentucky|"
+    r"louisiana|maine|maryland|massachusetts|michigan|minnesota|mississippi|"
+    r"missouri|montana|nebraska|nevada|new hampshire|new jersey|new mexico|"
+    r"new york|north carolina|north dakota|ohio|oklahoma|oregon|pennsylvania|"
+    r"rhode island|south carolina|south dakota|tennessee|texas|utah|vermont|"
+    r"virginia|west virginia|wisconsin|wyoming|"
+    r"seattle|boston|austin|denver|chicago|atlanta|san francisco|los angeles|"
+    r"san diego|san jose|philadelphia|phoenix|dallas|houston|miami|portland|"
+    r"pittsburgh|nashville|charlotte|detroit|minneapolis|salt lake city)", re.I)
 _REMOTE = re.compile(r"\bremote\b|\bdistributed\b|work from home", re.I)
 _BROAD = re.compile(r"north america|americas|multiple locations|various", re.I)
+# Countries and cities where he plainly cannot be employed. "Remote" does not
+# override this: a remote posting is scoped to countries where the employer has
+# an entity, and that scope is exactly what the location string states.
+# Without this, "Dubai - Remote" and "Brazil - Remote" fell through to the
+# generic remote branch and were reported as merely needing review.
+_FOREIGN = re.compile(
+    r"(united kingdom|\bUK\b|england|scotland|london|manchester|dublin|ireland|"
+    r"germany|berlin|munich|france|paris|spain|madrid|barcelona|portugal|lisbon|"
+    r"netherlands|amsterdam|belgium|brussels|italy|rome|milan|poland|warsaw|"
+    r"sweden|stockholm|norway|denmark|copenhagen|finland|helsinki|switzerland|"
+    r"zurich|austria|vienna|czech|prague|romania|bucharest|greece|athens|"
+    r"israel|tel aviv|dubai|\bUAE\b|abu dhabi|saudi|riyadh|qatar|doha|oman|"
+    r"kuwait|bahrain|egypt|cairo|south africa|nigeria|kenya|"
+    r"india|bangalore|bengaluru|hyderabad|mumbai|delhi|pune|chennai|"
+    r"singapore|malaysia|kuala lumpur|indonesia|jakarta|philippines|manila|"
+    r"thailand|bangkok|vietnam|japan|tokyo|osaka|korea|seoul|"
+    r"china|shanghai|beijing|shenzhen|hong kong|taiwan|taipei|"
+    r"australia|sydney|melbourne|brisbane|new zealand|auckland|"
+    r"mexico|brazil|s.o paulo|rio de janeiro|argentina|buenos aires|"
+    r"uruguay|montevideo|chile|santiago|colombia|bogot|peru|lima|costa rica)",
+    re.I)
 
 
 def classify_location(raw: str) -> LocationClass:
@@ -62,16 +95,20 @@ def classify_location(raw: str) -> LocationClass:
         return LocationClass.UNKNOWN_LOCATION
     canadian = bool(_CANADA.search(text))
     remote = bool(_REMOTE.search(text))
+    # Canada wins first: "Toronto - Remote" is reachable whatever else appears.
     if canadian:
         return LocationClass.CANADA_REMOTE if remote else LocationClass.CANADA_EXPLICIT
+    # A named foreign country beats the broad and remote branches. Being remote
+    # widens where you sit, not which country may employ you.
+    if _FOREIGN.search(text) or _US_ONLY.search(text):
+        return LocationClass.CANADA_NOT_ELIGIBLE
     if _BROAD.search(text):
         # "North America (Remote)" may or may not include Canada — never guess.
         return (LocationClass.AMERICAS_REMOTE_NEEDS_REVIEW if remote
                 else LocationClass.CANADA_POSSIBLE)
-    if _US_ONLY.search(text):
-        return LocationClass.CANADA_NOT_ELIGIBLE
     if remote:
-        return LocationClass.AMERICAS_REMOTE_NEEDS_REVIEW
+        # Remote with no geography at all. Unknown, not permissive.
+        return LocationClass.UNKNOWN_LOCATION
     return LocationClass.UNKNOWN_LOCATION
 
 

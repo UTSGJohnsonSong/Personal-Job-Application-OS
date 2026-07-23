@@ -12,6 +12,7 @@ are untouched here — this module only organises what they already produced.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from enum import StrEnum
 
@@ -84,6 +85,9 @@ class RoleEntry:
     discovery_url: str | None = None
     is_student_role: bool = False
     already_applied: bool = False
+    # Other places the same opportunity is advertised. Populated when the
+    # global queue collapses one role that was posted once per location.
+    other_locations: list[str] = field(default_factory=list)
     company_platform_value: float = 0.0
     role_strategic_value: float = 0.0
     current_fit: float = 0.0
@@ -205,8 +209,54 @@ def global_priority_queue(
     point of "company-centric management, opportunity-centric ranking".
     """
     pairs = [(c, r) for c in companies for r in c.relevant_roles]
-    pairs.sort(key=lambda pair: -pair[1].application_priority)
+    # Eligibility breaks ties before collapsing. The same role posted in
+    # Toronto and in Washington scores identically, and keeping whichever came
+    # first would surface the one he cannot apply to.
+    pairs.sort(key=lambda pair: (-pair[1].application_priority,
+                                 _ELIGIBILITY_RANK.get(pair[1].eligibility, 3)))
+    pairs = _collapse_same_role(pairs)
     return pairs[:limit] if limit else pairs
+
+
+_ELIGIBILITY_RANK = {"PASS": 0, "REVIEW": 1, "FAIL": 2}
+
+
+def _role_key(company: CompanyEntry, role: RoleEntry) -> tuple[str, str]:
+    """Identity of an opportunity, independent of where it is advertised."""
+    title = (role.title or "").lower()
+    # Employers commonly append the location to an otherwise identical title.
+    title = re.sub(r"\s*[\(\[][^)\]]*(remote|hybrid|onsite)[^)\]]*[\)\]]", " ", title)
+    title = re.sub(r"\s*[-—–]\s*(100% )?remote.*$", " ", title)
+    title = re.sub(r"[^a-z0-9]+", " ", title).strip()
+    return (company.company_id, title)
+
+
+def _collapse_same_role(
+    pairs: list[tuple[CompanyEntry, RoleEntry]],
+) -> list[tuple[CompanyEntry, RoleEntry]]:
+    """One row per opportunity, not one row per posting.
+
+    Employers routinely publish the same role once per location: Hopper had a
+    single backend opening listed ten times across Vancouver, the Netherlands,
+    Ireland, the UK, the US, New York, Argentina, Uruguay, Brazil and Spain.
+    Each is a distinct requisition with its own id, so nothing upstream is
+    wrong — but showing ten rows for one opportunity buries everything else.
+
+    Input is already sorted by priority, so the first occurrence is the best
+    one and the rest are recorded as alternate locations rather than dropped.
+    """
+    best: dict[tuple[str, str], tuple[CompanyEntry, RoleEntry]] = {}
+    out: list[tuple[CompanyEntry, RoleEntry]] = []
+    for company, role in pairs:
+        key = _role_key(company, role)
+        kept = best.get(key)
+        if kept is None:
+            best[key] = (company, role)
+            out.append((company, role))
+            continue
+        if role.location and role.location not in kept[1].other_locations:
+            kept[1].other_locations.append(role.location)
+    return out
 
 
 def companies_requiring_action(

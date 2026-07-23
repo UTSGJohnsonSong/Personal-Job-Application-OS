@@ -25,7 +25,7 @@ from app.models.ranking_v2 import (
     CompanyEvidence,
     RoleClassificationRow,
 )
-from app.models.sourcing import Job
+from app.models.sourcing import Job, JobLocation
 from app.parsing.jd_parser import parse_jd
 from app.personal.service import build_candidate_facts
 from app.ranking.gate import evaluate_gate
@@ -117,7 +117,14 @@ async def score_job(
     jd = parse_jd(description)
 
     facts = await build_candidate_facts(session, user_id)
-    gate = evaluate_gate(evaluate(jd, facts))
+    # The posting's location is a hard eligibility input, not decoration. Without
+    # it a Canadian PR passed the gate on roles in Dubai, Brazil and Uruguay.
+    location = (
+        await session.execute(
+            select(JobLocation.raw_text).where(JobLocation.job_id == job.id).limit(1)
+        )
+    ).scalar_one_or_none()
+    gate = evaluate_gate(evaluate(jd, facts, location=location))
 
     company = assess_company(await _company_evidence(session, job.company_id))
     role = classify_role(job.title, description)

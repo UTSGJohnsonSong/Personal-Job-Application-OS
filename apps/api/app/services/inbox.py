@@ -367,6 +367,10 @@ def global_view(companies: list[CompanyEntry], limit: int = 100) -> list[dict]:
             "recommendation": r.recommendation,
             "is_official": r.is_official,
             "apply_url": r.canonical_url,
+            "location": r.location,
+            # Same opportunity, other places it is advertised. Collapsed rather
+            # than listed as separate rows.
+            "other_locations": r.other_locations,
         }
         for i, (c, r) in enumerate(global_priority_queue(companies, limit=limit))
     ]
