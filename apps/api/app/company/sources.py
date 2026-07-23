@@ -106,6 +106,51 @@ VERIFIED: list[OfficialSource] = [
         "wattpad", SourceStatus.VERIFIED, "https://www.wattpad.com/careers",
         "lever", "wattpad",
         observed_jobs=25, observed_canada=7, observed_student_canada=0),
+    # --- tier S/A boards declared on the profile but not yet registered ---
+    # These carried a `boards` entry in profiles.py, so the pool treated them
+    # as verified, but they were never in this registry and so were never
+    # synced. Probed 2026-07-23 and moved here so the sync actually fetches them.
+    OfficialSource(
+        "wealthsimple", SourceStatus.VERIFIED, "https://www.wealthsimple.com/careers",
+        "ashby", "wealthsimple",
+        observed_jobs=32, observed_canada=32, observed_student_canada=0,
+        note="His number-one target. Entirely Canadian hiring."),
+    OfficialSource(
+        "cohere", SourceStatus.VERIFIED, "https://cohere.com/careers",
+        "ashby", "cohere",
+        observed_jobs=136, observed_canada=44, observed_student_canada=3,
+        note="Three Canadian student/co-op roles open now."),
+    OfficialSource(
+        "stripe", SourceStatus.VERIFIED, "https://stripe.com/jobs",
+        "greenhouse", "stripe",
+        observed_jobs=523, observed_canada=49, observed_student_canada=1),
+    OfficialSource(
+        "stackadapt", SourceStatus.VERIFIED, "https://www.stackadapt.com/careers",
+        "greenhouse", "stackadapt",
+        observed_jobs=95, observed_canada=56, observed_student_canada=0),
+    OfficialSource(
+        "pointclickcare", SourceStatus.VERIFIED,
+        "https://pointclickcare.com/careers",
+        "lever", "pointclickcare",
+        observed_jobs=92, observed_canada=49, observed_student_canada=0),
+    OfficialSource(
+        "1password", SourceStatus.VERIFIED, "https://1password.com/careers",
+        "ashby", "1password",
+        observed_jobs=66, observed_canada=47, observed_student_canada=0),
+    OfficialSource(
+        "geotab", SourceStatus.VERIFIED, "https://www.geotab.com/careers",
+        "greenhouse", "geotab",
+        observed_jobs=102, observed_canada=35, observed_student_canada=0),
+    OfficialSource(
+        "jobber", SourceStatus.VERIFIED, "https://careers.getjobber.com",
+        "ashby", "jobber",
+        observed_jobs=46, observed_canada=23, observed_student_canada=0),
+    OfficialSource(
+        "scotiabank", SourceStatus.VERIFIED, "https://jobs.scotiabank.com",
+        "successfactors", "Scotiabank",
+        _sf("https://jobs.scotiabank.com", "Scotiabank"),
+        observed_jobs=300, observed_canada=188, observed_student_canada=1,
+        note="Velocity student stream posts here; one co-op role open at probe."),
 ]
 
 # ---------------------------------------------------------------------------
@@ -124,6 +169,15 @@ PARTIAL: list[OfficialSource] = [
              "of 866 postings here, while reading 16 of 16 on the Bank of "
              "Canada's SuccessFactors site, so this is site-specific markup we "
              "do not parse yet. Treat SAP's Canadian counts as a floor."),
+    OfficialSource(
+        "td", SourceStatus.PARTIAL, "https://jobs.td.com",
+        "workday", "td",
+        _wd("td", "TD_Bank_Careers", pages=15),
+        observed_jobs=300, observed_canada=105, observed_student_canada=0,
+        note="Workday reports 1,795 postings; the page cap collects the first "
+             "300, so its Canadian count is a floor. Raising max_pages would "
+             "capture more but the co-op stream is seasonal and worth a "
+             "targeted search rather than a full crawl."),
 ]
 
 # ---------------------------------------------------------------------------
