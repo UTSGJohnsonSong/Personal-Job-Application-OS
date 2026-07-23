@@ -10,6 +10,7 @@ from app.connectors.lever import LeverConnector
 from app.connectors.oracle_orc import OracleOrcConnector
 from app.connectors.sitemap import SitemapCareerConnector
 from app.connectors.smartrecruiters import SmartRecruitersConnector
+from app.connectors.successfactors import SuccessFactorsConnector
 from app.connectors.user_import import UserImportConnector
 from app.connectors.workday import WorkdayConnector
 
@@ -26,6 +27,7 @@ _REGISTRY: dict[str, Connector] = {
         WorkdayConnector(),
         OracleOrcConnector(),
         BambooHrConnector(),
+        SuccessFactorsConnector(),
         # Generic employer career pages
         JsonLdCareerConnector(),
         SitemapCareerConnector(),

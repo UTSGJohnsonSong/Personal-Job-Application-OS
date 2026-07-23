@@ -105,9 +105,12 @@ ATS: list[SourceSpec] = [
     ),
     SourceSpec(
         "successfactors", "SAP SuccessFactors", "ats", A.PUBLIC_PAGE, 1,
-        C.ALREADY_CANONICAL, "jsonld", M.PROBE,
-        "Per-tenant. Most public SuccessFactors career sites emit JSON-LD, so the "
-        "generic JSON-LD connector should cover them once a tenant URL is known.",
+        C.ALREADY_CANONICAL, "successfactors", M.LIVE,
+        "VERIFIED 2026-07-22 against two real tenants. Generic RMK career-site "
+        "connector (tile-search-results paging). City of Toronto: 65 postings, "
+        "45 GTA. Scotiabank: 200+ postings, 86 GTA. RMK sites carry no location "
+        "field, so the city/province is derived from the job URL slug.",
+        {"base_url": "<career site root>", "search": "", "max_pages": 20},
     ),
     SourceSpec(
         "icims", "iCIMS", "ats", A.PUBLIC_PAGE, 1, C.ALREADY_CANONICAL,
@@ -160,11 +163,10 @@ GOVERNMENT: list[SourceSpec] = [
     ),
     SourceSpec(
         "city_of_toronto", "City of Toronto", "government", A.PUBLIC_PAGE, 2,
-        C.ALREADY_CANONICAL, "jsonld", M.NEEDS_ENDPOINT,
-        "DISCOVERED 2026-07-22 by following toronto.ca/city-government/jobs: the "
-        "real portal is jobs.toronto.ca running SAP SuccessFactors (not Oracle, "
-        "as first assumed). Needs the SuccessFactors search endpoint.",
-        {"portal": "https://jobs.toronto.ca/jobsatcity/", "vendor": "successfactors"},
+        C.ALREADY_CANONICAL, "successfactors", M.LIVE,
+        "VERIFIED 2026-07-22: jobs.toronto.ca runs SAP SuccessFactors (not "
+        "Oracle, as first assumed). 65 postings collected, 45 in the GTA.",
+        {"base_url": "https://jobs.toronto.ca/jobsatcity"},
     ),
     SourceSpec(
         "ttc", "Toronto Transit Commission", "government", A.PUBLIC_PAGE, 2,

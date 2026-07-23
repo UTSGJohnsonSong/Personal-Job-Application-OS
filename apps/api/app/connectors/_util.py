@@ -3,9 +3,12 @@ from __future__ import annotations
 import re
 from datetime import UTC, datetime
 
+# Human date formats seen on career sites, e.g. SuccessFactors "Jul 22, 2026".
+_HUMAN_DATE_FORMATS = ("%b %d, %Y", "%B %d, %Y", "%d %b %Y", "%Y/%m/%d", "%m/%d/%Y")
+
 
 def parse_dt(value) -> datetime | None:
-    """Parse ISO-8601 strings or epoch (s/ms) into aware UTC datetimes."""
+    """Parse ISO-8601, epoch (s/ms) or common human dates into aware UTC."""
     if value is None:
         return None
     if isinstance(value, (int, float)):
@@ -21,7 +24,13 @@ def parse_dt(value) -> datetime | None:
             dt = datetime.fromisoformat(s)
             return dt if dt.tzinfo else dt.replace(tzinfo=UTC)
         except ValueError:
-            return None
+            pass
+        for fmt in _HUMAN_DATE_FORMATS:
+            try:
+                return datetime.strptime(s, fmt).replace(tzinfo=UTC)
+            except ValueError:
+                continue
+        return None
     return None
 
 
