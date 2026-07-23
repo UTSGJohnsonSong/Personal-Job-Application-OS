@@ -11,6 +11,7 @@ from app.api.routes import (
     applications,
     dashboard,
     health,
+    inbox,
     jobs,
     manual,
     personal,
@@ -66,6 +67,7 @@ app.include_router(ammo.router)
 app.include_router(scoring.router)
 app.include_router(manual.router)
 app.include_router(personal.router)
+app.include_router(inbox.router)
 
 
 @app.get("/")

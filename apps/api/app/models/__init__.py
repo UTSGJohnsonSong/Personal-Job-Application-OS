@@ -13,6 +13,14 @@ from app.models.application import (  # noqa: F401
     ApplicationPacket,
     GeneratedDocument,
 )
+from app.models.company_inbox import (  # noqa: F401
+    CompanyApplicationPolicy,
+    CompanyRoleRanking,
+    CompanyWatchlist,
+    RecommendedApplicationSet,
+    RecommendedApplicationSetItem,
+    RoleSimilarityGroup,
+)
 from app.models.matching import (  # noqa: F401
     EligibilityResult,
     JobMatch,
