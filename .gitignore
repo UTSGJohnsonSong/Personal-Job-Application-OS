@@ -54,3 +54,6 @@ Thumbs.db
 /storage/
 uploads/
 *.log
+*.db-journal
+*.db-wal
+*.db-shm
