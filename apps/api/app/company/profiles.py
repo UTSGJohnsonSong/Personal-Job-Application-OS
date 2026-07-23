@@ -285,6 +285,33 @@ class CompanyProfile:
         return band(self.value_score, VALUE_BANDS)
 
     @property
+    def adjustment_reason(self) -> str | None:
+        """Why the final tier differs from what the algorithm produced.
+
+        The structural rules move tiers too, not just explicit overrides, and
+        a row marked "adjusted" with no explanation cannot be audited — so the
+        rules state themselves here rather than only in code.
+        """
+        if not self.adjusted:
+            return None
+        if self.override_reason:
+            return self.override_reason
+        if self.safety_net and self.algo_personal_tier != self.personal_tier:
+            return ("Floor rule: a safety net is capped at tier "
+                    f"{SAFETY_NET_CEILING} so it can never displace a real "
+                    "target in the recommended set, however reachable it is.")
+        if "tier1" in self.tags:
+            return ("Floor rule: he named this a first-choice target. The score "
+                    "reads company size, so a small named company lands low for "
+                    "being small — his stated preference is evidence about him, "
+                    "not noise, so it sets a floor of "
+                    f"{NAMED_TIER1_FLOOR}.")
+        if "tier2" in self.tags:
+            return ("Floor rule: he named this a second-choice target, which "
+                    f"sets a floor of {NAMED_TIER2_FLOOR}.")
+        return None
+
+    @property
     def value_view_action(self) -> str:
         """What the value ranking is telling him to DO about this company.
 

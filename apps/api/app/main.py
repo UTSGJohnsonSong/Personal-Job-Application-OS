@@ -17,6 +17,7 @@ from app.api.routes import (
     personal,
     queue,
     records,
+    registry,
     scoring,
 )
 from app.core.config import get_settings
@@ -68,6 +69,7 @@ app.include_router(scoring.router)
 app.include_router(manual.router)
 app.include_router(personal.router)
 app.include_router(inbox.router)
+app.include_router(registry.router)
 
 
 @app.get("/")

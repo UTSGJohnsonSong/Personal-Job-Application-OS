@@ -41,6 +41,7 @@ export default async function RootLayout({
               <span className="font-semibold text-white">Job Application OS</span>
               <nav className="flex gap-4 text-sm text-gray-400">
                 <Link href="/" className="hover:text-white">Dashboard</Link>
+                <Link href="/registry" className="hover:text-white">Registry</Link>
                 <Link href="/companies" className="hover:text-white">Companies</Link>
                 <Link href="/priority" className="hover:text-white">Priority</Link>
                 <Link href="/rankings" className="hover:text-white">Rankings</Link>
