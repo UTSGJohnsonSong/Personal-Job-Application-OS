@@ -37,25 +37,28 @@ export default async function RootLayout({
       <body>
         <div className="min-h-screen">
           {!isLogin && (
-            <header className="border-b border-gray-800 px-6 py-4 flex items-center gap-6">
-              <span className="font-semibold text-white">Job Application OS</span>
-              <nav className="flex gap-4 text-sm text-gray-400">
+            <header className="border-b px-8 py-3.5 flex items-center gap-7">
+              <span className="font-semibold text-white tracking-tight">
+                Job Application OS
+              </span>
+              <nav className="flex gap-5 text-[13px] text-gray-400">
                 <Link href="/" className="hover:text-white">Dashboard</Link>
-                <Link href="/pool" className="hover:text-white">Pool</Link>
-                <Link href="/priority" className="hover:text-white">Priority</Link>
+                <Link href="/inbox" className="hover:text-white">Job Inbox</Link>
                 <Link href="/queue" className="hover:text-white">Apply Queue</Link>
                 <Link href="/records" className="hover:text-white">Applications</Link>
                 <Link href="/ammo" className="hover:text-white">Library</Link>
               </nav>
-              <span className="ml-auto text-xs text-gray-600">
+              <span className="ml-auto text-[11px] text-gray-500 hidden lg:inline">
                 Every submission requires per-job confirmation
               </span>
               <form action={signOut}>
-                <button className="text-xs text-gray-500 hover:text-white">Sign out</button>
+                <button className="text-[11px] text-gray-500 hover:text-white">
+                  Sign out
+                </button>
               </form>
             </header>
           )}
-          <main className="p-6 max-w-6xl mx-auto">{children}</main>
+          <main className="px-8 py-8 max-w-6xl mx-auto">{children}</main>
           {!isLogin && <VersionFooter />}
         </div>
       </body>

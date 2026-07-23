@@ -3,11 +3,113 @@
 @tailwind utilities;
 
 :root {
-  color-scheme: dark;
+  color-scheme: light;
+  /* A very shallow vertical gradient reads as brushed silver without becoming
+     a visible gradient — flat #f5f5f7 looks dead behind translucent panels. */
+  --silver-top: #fbfbfd;
+  --silver-bottom: #eeeef2;
+}
+
+html,
+body {
+  min-height: 100%;
 }
 
 body {
-  background: #0b0f17;
-  color: #e5e7eb;
-  font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+  background:
+    radial-gradient(1200px 600px at 15% -10%, #ffffff 0%, transparent 60%),
+    linear-gradient(180deg, var(--silver-top) 0%, var(--silver-bottom) 100%);
+  background-attachment: fixed;
+  color: #1d1d1f;
+  font-family:
+    -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display",
+    "Helvetica Neue", "Segoe UI", ui-sans-serif, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  letter-spacing: -0.011em;
+}
+
+/* Every card already uses `bg-panel`, so the frost is applied once here rather
+   than added to each component. Panels are translucent in the palette; without
+   the blur they would just look washed out. */
+.bg-panel {
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.04),
+    0 8px 24px -14px rgba(0, 0, 0, 0.14);
+  border-color: rgba(0, 0, 0, 0.06);
+}
+
+/* The header is the one surface that sits over scrolling content, so it needs
+   a stronger frost to stay legible. */
+header {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  background: rgba(251, 251, 253, 0.72);
+  backdrop-filter: saturate(180%) blur(24px);
+  -webkit-backdrop-filter: saturate(180%) blur(24px);
+  border-color: rgba(0, 0, 0, 0.07) !important;
+}
+
+/* Hairlines: Tailwind's border greys are opaque, which stacks up visibly when
+   cards sit close together. Alpha borders keep the silver reading through. */
+.border-gray-800 {
+  border-color: rgba(0, 0, 0, 0.08) !important;
+}
+.border-gray-900 {
+  border-color: rgba(0, 0, 0, 0.05) !important;
+}
+.border-gray-700 {
+  border-color: rgba(0, 0, 0, 0.14) !important;
+}
+
+/* Tracks and fills behind progress bars and metrics. */
+.bg-gray-800 {
+  background-color: rgba(0, 0, 0, 0.07) !important;
+}
+.bg-gray-900 {
+  background-color: rgba(0, 0, 0, 0.04) !important;
+}
+.bg-black\/20 {
+  background-color: rgba(255, 255, 255, 0.5) !important;
+}
+
+h1,
+h2,
+h3 {
+  letter-spacing: -0.021em;
+}
+
+a,
+button {
+  transition:
+    color 140ms ease,
+    border-color 140ms ease,
+    background-color 140ms ease,
+    opacity 140ms ease;
+}
+
+::selection {
+  background: rgba(0, 113, 227, 0.18);
+}
+
+/* Quieter scrollbars; the default Windows bar is heavy against this palette. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.18) transparent;
+}
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-thumb {
+  background-color: rgba(0, 0, 0, 0.16);
+  border-radius: 999px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
 }

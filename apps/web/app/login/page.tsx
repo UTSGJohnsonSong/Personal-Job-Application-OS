@@ -97,7 +97,7 @@ export default async function LoginPage({
 
         <button
           disabled={!configured}
-          className="w-full text-sm px-3 py-2 rounded bg-accent text-white hover:opacity-90 disabled:opacity-40"
+          className="w-full text-sm px-3 py-2 rounded-lg bg-accent text-[#fff] font-medium hover:opacity-90 disabled:opacity-40"
         >
           Sign in
         </button>

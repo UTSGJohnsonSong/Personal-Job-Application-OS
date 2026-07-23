@@ -3,7 +3,7 @@ import Link from "next/link";
 import { ApiError } from "@/app/components/ApiError";
 import { Section } from "@/app/components/ScoreBits";
 import { api } from "@/lib/api";
-import { InboxDashboard, inbox } from "@/lib/inbox";
+import { Pool, pool } from "@/lib/pool";
 
 // Data is per-request from the API; never prerender at build time.
 export const dynamic = "force-dynamic";
@@ -29,7 +29,7 @@ function Stat({
 export default async function DashboardPage() {
   let overview = null;
   let actions = null;
-  let inboxData: InboxDashboard | null = null;
+  let poolData: Pool | null = null;
   let error: string | null = null;
 
   try {
@@ -38,33 +38,45 @@ export default async function DashboardPage() {
     error = (e as Error).message;
   }
   try {
-    inboxData = await inbox.dashboard();
+    poolData = await pool.get();
   } catch {
-    inboxData = null; // inbox metrics are additive; the page still works without them
+    poolData = null; // pool metrics are additive; the page still works without them
   }
 
   if (error) return <ApiError error={error} />;
 
   const t = overview!.totals;
-  const m = inboxData?.metrics ?? {};
+  const groups = poolData?.groups ?? [];
+  const companies = groups.flatMap((g) =>
+    g.companies.map((c) => ({ ...c, tier: g.tier })),
+  );
+  const hiring = companies.filter((c) => c.open_roles > 0);
+  const canadaRoles = companies.reduce((n, c) => n + c.canada_roles, 0);
+  const byTier = (tier: string) =>
+    groups.find((g) => g.tier === tier)?.company_count ?? 0;
 
   return (
     <div className="space-y-8">
       <section>
-        <h1 className="text-lg font-semibold text-white mb-3">Company Coverage</h1>
+        <div className="flex items-baseline justify-between mb-3">
+          <h1 className="text-lg font-semibold text-white">Pool Coverage</h1>
+          <Link href="/inbox" className="text-[11px] text-accent hover:underline">
+            Open Job Inbox →
+          </Link>
+        </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <Stat label="S-tier companies monitored" value={m.s_tier_companies_monitored ?? "—"} />
-          <Stat label="A-tier companies monitored" value={m.a_tier_companies_monitored ?? "—"} />
+          <Stat label="S-tier companies" value={byTier("S") || "—"} />
+          <Stat label="A-tier companies" value={byTier("A") || "—"} />
           <Stat
-            label="Official source coverage"
-            value={
-              m.official_source_coverage != null
-                ? `${(m.official_source_coverage * 100).toFixed(0)}%`
-                : "—"
-            }
-            hint="roles with an employer-owned link"
+            label="Companies hiring now"
+            value={hiring.length || "—"}
+            hint="have at least one role you could apply to"
           />
-          <Stat label="Companies tracked" value={m.total_companies ?? "—"} />
+          <Stat
+            label="Companies rated"
+            value={poolData?.total_companies ?? "—"}
+            hint="assessment frozen for the year"
+          />
         </div>
       </section>
 
@@ -72,22 +84,23 @@ export default async function DashboardPage() {
         <h2 className="text-sm font-semibold text-white mb-2">Opportunities</h2>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <Stat
-            label="High-priority roles across tiers"
-            value={m.high_priority_roles_across_tiers ?? "—"}
-            hint="priority ≥ 80"
+            label="Open roles you can apply to"
+            value={poolData?.total_open_roles ?? "—"}
+            hint="eligibility gate passed or needs review"
+          />
+          <Stat label="Roles in Canada" value={canadaRoles || "—"} />
+          <Stat
+            label="Sources mapped"
+            value={hiring.length ? `${hiring.length} live` : "—"}
+            hint="the rest apply manually"
           />
           <Stat
-            label="Companies with recommendations"
-            value={m.companies_with_recommended_applications ?? "—"}
-          />
-          <Stat
-            label="Companies near application limit"
-            value={m.companies_near_application_limit ?? "—"}
-          />
-          <Stat
-            label="High-potential unrated companies"
-            value={m.high_potential_unrated_companies ?? "—"}
-            hint="strong roles, thin company evidence"
+            label="Last refreshed"
+            value={
+              poolData?.last_refreshed
+                ? new Date(poolData.last_refreshed).toLocaleDateString()
+                : "—"
+            }
           />
         </div>
       </section>
@@ -105,31 +118,32 @@ export default async function DashboardPage() {
         </div>
       </section>
 
-      {inboxData && inboxData.top_companies_requiring_action.length > 0 && (
+      {hiring.length > 0 && (
         <Section
-          title="Top Companies Requiring Action"
-          subtitle="Ordered by the strongest role currently open at each company."
+          title="Where to look first"
+          subtitle="Highest-tier companies with roles open right now."
         >
           <div className="space-y-2">
-            {inboxData.top_companies_requiring_action.map((c) => (
+            {hiring.slice(0, 6).map((c) => (
               <div
-                key={c.company_id}
+                key={c.key}
                 className="flex items-start gap-3 rounded border border-gray-800 bg-black/20 p-3"
               >
-                <div className="w-10 text-right">
-                  <div className="text-sm text-white">{c.best_priority.toFixed(0)}</div>
-                  <div className="text-[10px] text-gray-600">best</div>
+                <div className="w-10 text-right shrink-0">
+                  <div className="text-sm text-white">{c.score.toFixed(0)}</div>
+                  <div className="text-[10px] text-gray-600">tier {c.tier}</div>
                 </div>
-                <div className="flex-1">
+                <div className="flex-1 min-w-0">
                   <Link
-                    href={`/companies/${c.company_id}`}
+                    href={`/inbox/${c.key}`}
                     className="text-sm text-white hover:underline"
                   >
                     {c.name}
                   </Link>
-                  <span className="text-[11px] text-gray-500 ml-2">Tier {c.tier}</span>
-                  <div className="text-[11px] text-gray-400 mt-1">
-                    {c.reasons.join(" · ")}
+                  <div className="text-[11px] text-gray-400 mt-0.5">
+                    {c.open_roles} open
+                    {c.canada_roles > 0 && ` · ${c.canada_roles} in Canada`}
+                    {c.top_roles[0] && ` · top: ${c.top_roles[0].title}`}
                   </div>
                 </div>
               </div>

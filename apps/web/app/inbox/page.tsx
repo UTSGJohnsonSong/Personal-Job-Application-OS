@@ -1,10 +1,55 @@
-import { redirect } from "next/navigation";
+import { ApiError } from "@/app/components/ApiError";
+import { RefreshButton } from "@/app/inbox/RefreshButton";
+import { TierSection } from "@/app/inbox/TierSection";
+import { Pool, pool } from "@/lib/pool";
 
-/**
- * The Job Inbox is now company-tier-centric: Tier -> Company -> top roles.
- * The old flat list showed a bare freshness percentage with no company context,
- * so it is retired rather than kept running alongside the new views.
- */
-export default function InboxPage() {
-  redirect("/companies");
+export const dynamic = "force-dynamic";
+
+export default async function JobInboxPage() {
+  let data: Pool | null = null;
+  let estimate = { sources: 0, estimated_seconds: 0 };
+  let error: string | null = null;
+  try {
+    const [p, e] = await Promise.all([pool.get(), pool.estimate()]);
+    data = p;
+    estimate = e;
+  } catch (e) {
+    error = (e as Error).message;
+  }
+
+  return (
+    <div className="space-y-5">
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="text-lg font-semibold text-white">Job Inbox</h1>
+          <p className="text-[11px] text-gray-500 mt-1">
+            {data
+              ? `${data.total_companies} companies · ${data.total_open_roles} open roles you can apply to`
+              : "Companies grouped by tier; roles ordered within each company."}
+          </p>
+        </div>
+        <RefreshButton
+          estimatedSeconds={estimate.estimated_seconds}
+          sources={estimate.sources}
+          lastRefreshed={data?.last_refreshed ?? null}
+        />
+      </div>
+
+      {error && <ApiError error={error} />}
+
+      {data && (
+        <div className="space-y-4">
+          {data.groups.map((g) => (
+            <TierSection
+              key={g.tier}
+              group={g}
+              // S and A open by default: those are where applications go. The
+              // long tail stays collapsed so the page opens on what matters.
+              defaultOpen={g.tier === "S" || g.tier === "A"}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }

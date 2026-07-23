@@ -85,8 +85,8 @@ export default async function PoolCompanyPage({
   if (error || !c) {
     return (
       <div className="space-y-4">
-        <Link href="/pool" className="text-xs text-accent hover:underline">
-          ← Pool
+        <Link href="/inbox" className="text-xs text-accent hover:underline">
+          ← Job Inbox
         </Link>
         <ApiError error={error ?? "not found"} />
       </div>
@@ -99,8 +99,8 @@ export default async function PoolCompanyPage({
 
   return (
     <div className="space-y-5">
-      <Link href="/pool" className="text-xs text-accent hover:underline">
-        ← Pool
+      <Link href="/inbox" className="text-xs text-accent hover:underline">
+        ← Job Inbox
       </Link>
 
       <div>

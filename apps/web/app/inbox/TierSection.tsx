@@ -45,7 +45,7 @@ function CompanyCard({ c }: { c: PoolCompany }) {
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <Link
-            href={`/pool/${c.key}`}
+            href={`/inbox/${c.key}`}
             className={`font-medium hover:underline ${
               dim ? "text-gray-400" : "text-white"
             }`}
@@ -85,7 +85,7 @@ function CompanyCard({ c }: { c: PoolCompany }) {
           ))}
           {c.has_more && (
             <Link
-              href={`/pool/${c.key}`}
+              href={`/inbox/${c.key}`}
               className="inline-block mt-1 text-[11px] text-accent hover:underline"
             >
               Expand — all {c.open_roles} roles and full company detail →
@@ -99,7 +99,7 @@ function CompanyCard({ c }: { c: PoolCompany }) {
             : c.source_status === "searching"
               ? "No source mapped yet, so no roles are being tracked."
               : "No open roles right now."}
-          <Link href={`/pool/${c.key}`} className="text-accent hover:underline ml-1">
+          <Link href={`/inbox/${c.key}`} className="text-accent hover:underline ml-1">
             Company detail →
           </Link>
         </p>

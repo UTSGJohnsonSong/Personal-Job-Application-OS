@@ -27,20 +27,18 @@ export async function queueRemove(formData: FormData) {
   revalidatePath("/inbox");
 }
 
-export async function recomputeScores() {
-  const { scoring } = await import("@/lib/scoring");
-  await scoring.recompute("internship");
-  revalidatePath("/rankings");
-  revalidatePath("/");
-}
-
+/**
+ * Recording that one role was preferred over another. Kept because the
+ * pairwise signal feeds the ranking engine, even though the compare page it
+ * was built for is gone — the job detail page is where it belongs next.
+ */
 export async function recordPreference(formData: FormData) {
   const { scoring } = await import("@/lib/scoring");
-  const chosen = String(formData.get("chosen"));
-  const rejected = String(formData.get("rejected"));
-  await scoring.preference(chosen, rejected);
-  revalidatePath("/compare");
-  revalidatePath("/rankings");
+  await scoring.preference(
+    String(formData.get("chosen")),
+    String(formData.get("rejected")),
+  );
+  revalidatePath("/inbox");
 }
 
 export async function signOut() {
@@ -51,16 +49,6 @@ export async function signOut() {
   redirect("/login");
 }
 
-export async function rebuildInbox() {
-  const { inbox } = await import("@/lib/inbox");
-  await inbox.rebuild();
-  revalidatePath("/companies");
-  revalidatePath("/priority");
-  revalidatePath("/");
-}
-
-export async function chooseRole(formData: FormData) {
-  const { inbox } = await import("@/lib/inbox");
-  await inbox.choose(String(formData.get("chosen")), String(formData.get("rejected")));
-  revalidatePath("/priority");
-}
+// Refreshing the inbox is driven by the Refresh button, which polls
+// /api/refresh for progress. Nothing here needs a server action any more —
+// the old rebuild/compare actions belonged to pages that no longer exist.

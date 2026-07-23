@@ -51,8 +51,8 @@ export default async function RankingDetail({
   return (
     <div className="space-y-5">
       <div>
-        <Link href="/rankings" className="text-xs text-gray-500 hover:text-white">
-          ← Rankings
+        <Link href="/inbox" className="text-xs text-gray-500 hover:text-white">
+          ← Job Inbox
         </Link>
         <h1 className="text-lg font-semibold text-white mt-2">{d.job.title}</h1>
         <div className="flex gap-1.5 flex-wrap mt-2">

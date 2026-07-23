@@ -115,7 +115,7 @@ export default async function RecordDetail({
               </option>
             ))}
           </select>
-          <button className="text-sm px-3 py-1 rounded bg-accent text-white hover:opacity-90">
+          <button className="text-sm px-3 py-1 rounded-lg bg-accent text-[#fff] font-medium hover:opacity-90">
             Save
           </button>
           <span className="text-xs text-gray-600">
