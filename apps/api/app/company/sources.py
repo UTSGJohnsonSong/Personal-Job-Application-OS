@@ -151,6 +151,29 @@ VERIFIED: list[OfficialSource] = [
         _sf("https://jobs.scotiabank.com", "Scotiabank"),
         observed_jobs=300, observed_canada=188, observed_student_canada=1,
         note="Velocity student stream posts here; one co-op role open at probe."),
+    # --- newly added companies, probed 2026-07-23 on the JSON boards ---
+    OfficialSource(
+        "pinterest", SourceStatus.VERIFIED, "https://www.pinterestcareers.com",
+        "greenhouse", "pinterest",
+        observed_jobs=193, observed_canada=15, observed_student_canada=0,
+        note="Toronto data/ML roles among a mostly-US board."),
+    OfficialSource(
+        "spotify", SourceStatus.VERIFIED, "https://www.lifeatspotify.com",
+        "lever", "spotify",
+        observed_jobs=108, observed_canada=5, observed_student_canada=0),
+    OfficialSource(
+        "later", SourceStatus.VERIFIED, "https://later.com/careers",
+        "greenhouse", "later",
+        observed_jobs=65, observed_canada=12, observed_student_canada=0),
+    OfficialSource(
+        "relayfi", SourceStatus.VERIFIED, "https://relayfi.com/careers",
+        "ashby", "relay",
+        observed_jobs=25, observed_canada=8, observed_student_canada=0),
+    OfficialSource(
+        "kabam", SourceStatus.VERIFIED, "https://www.kabam.com/careers",
+        "lever", "kabam",
+        observed_jobs=16, observed_canada=16, observed_student_canada=0,
+        note="Vancouver studio, entirely Canadian board."),
 ]
 
 # ---------------------------------------------------------------------------

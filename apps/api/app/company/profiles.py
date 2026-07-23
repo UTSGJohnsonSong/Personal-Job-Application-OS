@@ -1329,10 +1329,522 @@ _PUBLIC: list[CompanyProfile] = [
       safety_net=True, role_floor=True, tags=("government", "canada")),
 ]
 
+# =========================================================================
+# Investment, quant, asset management, capital markets. A direction the
+# candidate named explicitly: data- and quant-heavy work he is well suited to,
+# with real Toronto co-op intakes. role_floor: the brand must lift only the
+# technical / quant / data seats, never a sales or relationship one.
+# =========================================================================
+_INVESTMENT: list[CompanyProfile] = [
+    C("brookfield", "Brookfield", ca=3, us=2, cn=1, depth=2, role=2, domain=3,
+      founder=1, prog=2, tech=1,
+      why="One of the world's largest alternative asset managers, "
+          "headquartered in Toronto, with a growing technology and data group "
+          "across real assets and infrastructure.",
+      role_floor=True, tags=("investment", "toronto")),
+    C("onex", "Onex", ca=2, us=1, cn=0, depth=1, role=2, domain=3, founder=1,
+      prog=2, tech=1,
+      why="Major Toronto private-equity firm with a small but genuine "
+          "data-and-analytics function supporting deal and portfolio work.",
+      role_floor=True, tags=("investment", "toronto")),
+    C("psp", "PSP Investments", ca=2, us=1, cn=0, depth=2, role=3, domain=3,
+      founder=1, prog=2, tech=2,
+      why="Large federal public-sector pension investor (Montreal/Ottawa) with "
+          "a real quant, data and technology organisation and a formal intake.",
+      aliases=("PSP",), role_floor=True, tags=("pension", "investment", "canada")),
+    C("aimco", "AIMCo", ca=2, us=0, cn=0, depth=2, role=3, domain=3, founder=1,
+      prog=2, tech=2,
+      why="Alberta's institutional investor, building out quantitative and data "
+          "teams with a defined early-talent programme.",
+      role_floor=True, tags=("pension", "investment", "canada")),
+    C("bci", "BCI", ca=1, us=0, cn=0, depth=2, role=3, domain=3, founder=1,
+      prog=2, tech=2,
+      why="British Columbia Investment Management — a large institutional "
+          "investor in Victoria with genuine quant and technology roles.",
+      role_floor=True, tags=("pension", "investment", "canada")),
+    C("mackenzie", "Mackenzie Investments", ca=2, us=0, cn=0, depth=2, role=3,
+      domain=3, founder=1, prog=2, tech=1,
+      why="Toronto asset manager (IGM) with an investment-analytics and data "
+          "group and a student intake.",
+      role_floor=True, tags=("investment", "toronto")),
+    C("fiera", "Fiera Capital", ca=1, us=1, cn=0, depth=2, role=2, domain=3,
+      founder=1, prog=1, tech=1,
+      why="One of Canada's largest independent asset managers (Montreal), with "
+          "quantitative strategies and a data team.",
+      role_floor=True, tags=("investment", "canada")),
+    C("polarasset", "Polar Asset Management", ca=1, us=1, cn=0, depth=1, role=2,
+      domain=3, founder=1, prog=1, tech=2,
+      why="Toronto multi-strategy hedge fund with genuine quantitative and "
+          "technology needs; small, so a role sits close to the strategy.",
+      role_floor=True, tags=("investment", "toronto", "quant")),
+    C("pictonmahoney", "Picton Mahoney", ca=1, us=0, cn=0, depth=1, role=2,
+      domain=3, founder=1, prog=1, tech=1,
+      why="Toronto alternative asset manager with quantitative and data-driven "
+          "strategies.",
+      role_floor=True, tags=("investment", "toronto", "quant")),
+    C("tdsecurities", "TD Securities", ca=3, us=2, cn=1, depth=3, role=3,
+      domain=3, founder=1, prog=3, tech=2,
+      why="TD's capital-markets arm: real trading technology, quant and data "
+          "engineering in Toronto, with a structured co-op pipeline.",
+      role_floor=True, tags=("investment", "bank", "toronto", "quant")),
+    C("rbccm", "RBC Capital Markets", ca=3, us=2, cn=1, depth=3, role=3,
+      domain=3, founder=1, prog=3, tech=2,
+      why="RBC's capital-markets arm with trading-technology and quant "
+          "developer roles in Toronto and a mature student intake.",
+      aliases=("RBC Capital Markets",), role_floor=True,
+      tags=("investment", "bank", "toronto", "quant")),
+    C("bmocm", "BMO Capital Markets", ca=2, us=2, cn=1, depth=2, role=3,
+      domain=3, founder=1, prog=3, tech=2,
+      why="BMO's capital-markets arm with trading-tech and quant roles and a "
+          "co-op programme.",
+      role_floor=True, tags=("investment", "bank", "toronto", "quant")),
+    C("scotiagbm", "Scotiabank Global Banking & Markets", ca=2, us=1, cn=1,
+      depth=2, role=3, domain=3, founder=1, prog=3, tech=2,
+      why="Scotiabank's capital-markets arm; quant and trading-technology roles "
+          "with a Velocity-linked student intake.",
+      aliases=("Scotiabank GBM",), role_floor=True,
+      tags=("investment", "bank", "toronto", "quant")),
+    C("nbf", "National Bank Financial", ca=2, us=0, cn=0, depth=2, role=2,
+      domain=3, founder=1, prog=2, tech=1,
+      why="National Bank's capital-markets arm (Montreal) with trading and "
+          "data roles; French an asset.",
+      role_floor=True, tags=("investment", "bank", "canada")),
+    C("bloomberg", "Bloomberg", ca=1, us=3, cn=2, depth=2, role=3, domain=3,
+      founder=1, prog=3, tech=3,
+      why="Financial-data and software giant. A serious engineering brand, real "
+          "data and software roles, and a published internship reachable from "
+          "Canada.",
+      role_floor=True, tags=("investment", "data", "fintech")),
+    C("morningstar", "Morningstar Canada", ca=1, us=2, cn=1, depth=2, role=3,
+      domain=3, founder=1, prog=2, tech=2,
+      why="Investment-data and research company with a Toronto office and real "
+          "data-engineering and analyst roles.",
+      role_floor=True, tags=("investment", "data", "toronto")),
+    C("lseg", "LSEG (Refinitiv)", ca=2, us=2, cn=1, depth=3, role=3, domain=3,
+      founder=1, prog=3, tech=2,
+      why="London Stock Exchange Group's data arm (former Refinitiv, Thomson "
+          "Reuters heritage) with a large Toronto technology and data centre.",
+      aliases=("Refinitiv", "LSEG"), role_floor=True,
+      tags=("investment", "data", "toronto", "fintech")),
+]
+
+# =========================================================================
+# More global technology employers with genuine Canadian data/AI/SWE hiring.
+# =========================================================================
+_GLOBAL_TECH_2: list[CompanyProfile] = [
+    C("spotify", "Spotify", ca=2, us=3, cn=2, depth=2, role=2, domain=3,
+      founder=2, prog=3, tech=3,
+      why="Large consumer-ML and data brand with a real Toronto engineering "
+          "presence and a competitive, published internship.",
+      tags=("bigtech", "toronto", "data")),
+    C("tiktok", "TikTok", ca=2, us=3, cn=3, depth=2, role=2, domain=3,
+      founder=1, prog=3, tech=3,
+      why="ByteDance's recommendation platform with a Toronto office and heavy "
+          "applied-ML and data work; a top brand in China, where he may return.",
+      aliases=("ByteDance",), tags=("bigtech", "toronto", "ai", "china")),
+    C("meta", "Meta", ca=2, us=3, cn=2, depth=2, role=2, domain=2, founder=1,
+      prog=3, tech=3,
+      why="Global engineering benchmark with a Toronto office and a structured, "
+          "if very competitive, internship.",
+      tags=("bigtech", "toronto")),
+    C("apple", "Apple", ca=2, us=3, cn=3, depth=2, role=2, domain=2, founder=1,
+      prog=3, tech=3,
+      why="Toronto and Vancouver ML and hardware groups; elite brand in all "
+          "three of his markets.",
+      tags=("bigtech", "toronto")),
+    C("oracle", "Oracle Canada", ca=2, us=3, cn=2, depth=3, role=3, domain=2,
+      founder=1, prog=3, tech=2,
+      why="Large enterprise-software and cloud employer with Canadian offices "
+          "and a predictable student intake.",
+      tags=("enterprise", "canada")),
+    C("servicenow", "ServiceNow", ca=2, us=3, cn=1, depth=2, role=3, domain=2,
+      founder=1, prog=3, tech=2,
+      why="Fast-growing enterprise-workflow platform with Canadian hiring and a "
+          "real internship.",
+      tags=("enterprise", "canada")),
+    C("cisco", "Cisco Canada", ca=2, us=3, cn=2, depth=3, role=3, domain=2,
+      founder=1, prog=3, tech=2,
+      why="Large Ottawa and Toronto R&D presence with one of the more reliable "
+          "co-op intakes in Canadian enterprise tech.",
+      tags=("enterprise", "canada")),
+    C("workday", "Workday Canada", ca=2, us=3, cn=1, depth=2, role=3, domain=3,
+      founder=1, prog=3, tech=2,
+      why="Enterprise HR/finance cloud with Canadian offices and genuine data "
+          "and analytics roles.",
+      tags=("enterprise", "canada", "data")),
+    C("block", "Block (Square)", ca=1, us=3, cn=1, depth=2, role=2, domain=3,
+      founder=2, prog=3, tech=3,
+      why="Fintech engineering brand (Square, Cash App) with Canadian remote "
+          "hiring and a strong internship.",
+      aliases=("Square",), tags=("fintech", "bigtech")),
+    C("twilio2", "Twilio Canada", ca=1, us=2, cn=0, depth=2, role=2, domain=2,
+      founder=1, prog=2, tech=2,
+      why="Communications-API platform with Canadian remote engineering roles.",
+      aliases=("Twilio",), tags=("saas", "canada")),
+    C("doordash", "DoorDash", ca=2, us=3, cn=0, depth=2, role=3, domain=3,
+      founder=2, prog=3, tech=2,
+      why="Large marketplace with a Toronto office and genuinely interesting "
+          "logistics and demand data work.",
+      tags=("bigtech", "toronto", "data")),
+    C("wayfair", "Wayfair", ca=1, us=2, cn=0, depth=2, role=3, domain=3,
+      founder=1, prog=3, tech=2,
+      why="E-commerce company with a real Toronto data-science and engineering "
+          "centre and a structured co-op.",
+      tags=("commerce", "toronto", "data")),
+    C("pinterest", "Pinterest", ca=1, us=2, cn=0, depth=1, role=2, domain=3,
+      founder=1, prog=3, tech=2,
+      why="Large consumer-ML and data platform with a Toronto presence.",
+      tags=("bigtech", "toronto", "data")),
+    C("intel", "Intel Canada", ca=1, us=3, cn=2, depth=2, role=2, domain=1,
+      founder=1, prog=3, tech=2,
+      why="Toronto and Vancouver engineering sites; strong brand, work skews "
+          "toward hardware and systems.",
+      tags=("hardware", "canada")),
+    C("qualcomm", "Qualcomm Canada", ca=1, us=3, cn=2, depth=2, role=1,
+      domain=1, founder=1, prog=3, tech=2,
+      why="Wireless and silicon engineering in Canada; prestigious but far "
+          "from his analyst and product path.",
+      tags=("hardware", "canada")),
+    C("unity", "Unity", ca=1, us=2, cn=1, depth=2, role=2, domain=2, founder=1,
+      prog=2, tech=2,
+      why="Real-time 3D engine with Canadian offices and data/ML roles behind "
+          "the games platform.",
+      tags=("saas", "canada", "gaming")),
+]
+
+# =========================================================================
+# More Canadian technology scale-ups, sector-agnostic — the breadth the
+# candidate asked for beyond health.
+# =========================================================================
+_CANADA_TECH_2: list[CompanyProfile] = [
+    C("indexexchange", "Index Exchange", ca=2, us=2, cn=0, depth=3, role=3,
+      domain=3, founder=1, prog=3, tech=2,
+      why="Toronto advertising exchange operating at enormous scale — heavy "
+          "distributed-systems and data engineering, and a strong co-op intake. "
+          "A clear omission from the registry.",
+      tags=("saas", "toronto", "data", "adtech")),
+    C("snyk", "Snyk", ca=1, us=2, cn=0, depth=2, role=3, domain=3, founder=2,
+      prog=2, tech=3,
+      why="Ottawa-rooted developer-security platform with a strong engineering "
+          "brand and real Canadian hiring.",
+      tags=("saas", "canada", "security")),
+    C("klipfolio", "Klipfolio", ca=1, us=1, cn=0, depth=1, role=3, domain=3,
+      founder=2, prog=2, tech=1,
+      why="Ottawa BI and dashboard company — directly aligned with his Power BI "
+          "and analytics work, at an accessible hiring bar.",
+      tags=("saas", "canada", "data")),
+    C("rewind", "Rewind", ca=1, us=1, cn=0, depth=1, role=2, domain=2,
+      founder=2, prog=1, tech=2,
+      why="Ottawa SaaS backup company; small, technical, and locally reachable.",
+      tags=("saas", "canada")),
+    C("symend", "Symend", ca=1, us=1, cn=0, depth=2, role=2, domain=3,
+      founder=2, prog=1, tech=2,
+      why="Calgary behavioural-AI company for debt resolution — applied ML on "
+          "financial-behaviour data.",
+      tags=("saas", "canada", "ai", "fintech")),
+    C("introhive", "Introhive", ca=1, us=1, cn=0, depth=2, role=2, domain=3,
+      founder=2, prog=2, tech=2,
+      why="Fredericton/Toronto relationship-intelligence AI with a real data "
+          "team.",
+      tags=("saas", "canada", "ai")),
+    C("tealbook", "Tealbook", ca=1, us=1, cn=0, depth=1, role=2, domain=3,
+      founder=3, prog=1, tech=2,
+      why="Toronto supplier-data-intelligence company; small, data-centric, and "
+          "close to the customer.",
+      tags=("saas", "toronto", "data", "ai")),
+    C("roserocket", "Rose Rocket", ca=1, us=1, cn=0, depth=1, role=2, domain=3,
+      founder=3, prog=1, tech=2,
+      why="Toronto logistics-SaaS with real data work at a size where a co-op "
+          "sees the whole product.",
+      tags=("saas", "toronto", "tob")),
+    C("nulogy", "Nulogy", ca=1, us=1, cn=0, depth=2, role=2, domain=3,
+      founder=2, prog=2, tech=2,
+      why="Toronto supply-chain SaaS with genuine data engineering and a "
+          "recurring intake.",
+      tags=("saas", "toronto", "tob")),
+    C("assent", "Assent", ca=1, us=1, cn=0, depth=2, role=3, domain=3,
+      founder=2, prog=3, tech=2,
+      why="Ottawa supply-chain-sustainability data company with a large, "
+          "growing co-op programme.",
+      tags=("saas", "canada", "data")),
+    C("certn", "Certn", ca=1, us=1, cn=0, depth=2, role=2, domain=3, founder=2,
+      prog=2, tech=2,
+      why="Victoria background-check platform built on data pipelines and "
+          "risk models.",
+      tags=("saas", "canada", "data")),
+    C("enghouse", "Enghouse Systems", ca=2, us=1, cn=0, depth=3, role=2,
+      domain=2, founder=1, prog=2, tech=1,
+      why="Large Markham enterprise-software acquirer with steady, if "
+          "unglamorous, engineering hiring.",
+      tags=("saas", "toronto")),
+    C("touchbistro", "TouchBistro", ca=2, us=1, cn=0, depth=2, role=2, domain=3,
+      founder=2, prog=2, tech=2,
+      why="Toronto restaurant-SaaS with a real product-and-data team.",
+      tags=("saas", "toronto", "tob")),
+    C("rangle", "Rangle.io", ca=1, us=1, cn=0, depth=2, role=2, domain=2,
+      founder=2, prog=1, tech=2,
+      why="Toronto engineering consultancy with a genuine technical reputation "
+          "and varied client work.",
+      tags=("saas", "toronto", "consulting")),
+    C("later", "Later", ca=2, us=1, cn=0, depth=2, role=2, domain=3, founder=2,
+      prog=2, tech=2,
+      why="Vancouver social-media-management SaaS with data and analytics roles.",
+      tags=("saas", "canada")),
+]
+
+# =========================================================================
+# Gaming and interactive — data-, ML- and analytics-heavy, and among the
+# largest co-op employers in Montreal and Toronto.
+# =========================================================================
+_GAMING: list[CompanyProfile] = [
+    C("ubisoft", "Ubisoft", ca=3, us=2, cn=2, depth=3, role=3, domain=2,
+      founder=1, prog=3, tech=2,
+      why="Montreal and Toronto studios run one of the largest co-op intakes in "
+          "Canada, with real data, ML and tools engineering behind the games.",
+      tags=("gaming", "canada", "data")),
+    C("ea", "Electronic Arts", ca=2, us=3, cn=2, depth=3, role=3, domain=2,
+      founder=1, prog=3, tech=2,
+      why="Large Vancouver and Montreal studios with heavy data-science and "
+          "backend work and a mature co-op programme.",
+      aliases=("EA",), tags=("gaming", "canada", "data")),
+    C("behaviour", "Behaviour Interactive", ca=2, us=1, cn=1, depth=3, role=2,
+      domain=2, founder=1, prog=3, tech=2,
+      why="Canada's largest independent studio (Montreal) with real backend, "
+          "data and live-ops engineering.",
+      tags=("gaming", "canada")),
+    C("gameloft", "Gameloft", ca=1, us=1, cn=2, depth=2, role=2, domain=2,
+      founder=1, prog=2, tech=2,
+      why="Montreal and Toronto mobile-games studios with data and backend "
+          "roles.",
+      tags=("gaming", "canada")),
+    C("wbgames", "Warner Bros. Games Montreal", ca=1, us=2, cn=1, depth=2,
+      role=2, domain=2, founder=1, prog=2, tech=2,
+      why="Montreal AAA studio with engineering and tools roles.",
+      tags=("gaming", "canada")),
+    C("kabam", "Kabam", ca=1, us=1, cn=1, depth=2, role=2, domain=3, founder=1,
+      prog=2, tech=2,
+      why="Vancouver mobile-games studio with genuine data-science and "
+          "live-analytics work.",
+      tags=("gaming", "canada", "data")),
+    C("eidos", "Eidos-Montréal", ca=1, us=1, cn=0, depth=2, role=2, domain=1,
+      founder=1, prog=2, tech=2,
+      why="Montreal AAA studio; engineering roles, French an asset.",
+      tags=("gaming", "canada")),
+]
+
+# =========================================================================
+# More insurers. His two-part frequency/severity GLM pricing project reads
+# directly onto actuarial and pricing data-science teams here, which are an
+# under-noticed but sizeable source of analyst roles.
+# =========================================================================
+_INSURANCE_2: list[CompanyProfile] = [
+    C("cooperators", "Co-operators", ca=2, us=0, cn=0, depth=3, role=3,
+      domain=3, founder=1, prog=3, tech=1,
+      why="Guelph insurer with a large actuarial and data-science organisation "
+          "and a strong co-op programme — a direct match for his GLM pricing "
+          "work.",
+      role_floor=True, tags=("insurer", "canada", "data")),
+    C("wawanesa", "Wawanesa", ca=2, us=0, cn=0, depth=2, role=3, domain=2,
+      founder=1, prog=2, tech=1,
+      why="Large Winnipeg mutual insurer with actuarial and analytics roles.",
+      role_floor=True, tags=("insurer", "canada")),
+    C("goremutual", "Gore Mutual", ca=1, us=0, cn=0, depth=2, role=3, domain=2,
+      founder=1, prog=2, tech=2,
+      why="Cambridge insurer mid-way through a digital and data transformation, "
+          "hiring analysts and data roles.",
+      role_floor=True, tags=("insurer", "canada")),
+    C("iafinancial", "iA Financial", ca=2, us=0, cn=0, depth=2, role=3,
+      domain=2, founder=1, prog=2, tech=1,
+      why="Quebec City insurer and wealth manager with actuarial and data "
+          "teams; French an asset.",
+      role_floor=True, tags=("insurer", "canada")),
+    C("empirelife", "Empire Life", ca=1, us=0, cn=0, depth=2, role=3, domain=2,
+      founder=1, prog=2, tech=1,
+      why="Kingston insurer with actuarial and analytics co-op roles.",
+      role_floor=True, tags=("insurer", "canada")),
+    C("equitablelife", "Equitable Life", ca=1, us=0, cn=0, depth=2, role=3,
+      domain=2, founder=1, prog=2, tech=1,
+      why="Waterloo mutual insurer with a steady actuarial and data intake.",
+      role_floor=True, tags=("insurer", "canada")),
+    C("munichre", "Munich Re Canada", ca=1, us=1, cn=1, depth=2, role=2,
+      domain=3, founder=1, prog=2, tech=2,
+      why="Toronto reinsurance office with genuinely quantitative pricing and "
+          "risk-modelling work.",
+      role_floor=True, tags=("insurer", "toronto", "quant")),
+    C("foresters", "Foresters Financial", ca=1, us=1, cn=0, depth=2, role=2,
+      domain=2, founder=1, prog=2, tech=1,
+      why="Toronto life insurer with data and analytics roles.",
+      role_floor=True, tags=("insurer", "toronto")),
+]
+
+# =========================================================================
+# Retail and commerce — rated ONLY where a real data-science / engineering
+# organisation exists. The store-operations reporting trap he flagged is still
+# excluded; these are the technology arms.
+# =========================================================================
+_RETAIL_TECH: list[CompanyProfile] = [
+    C("canadiantire", "Canadian Tire (Data & Analytics)", ca=3, us=0, cn=0,
+      depth=3, role=3, domain=3, founder=1, prog=3, tech=2,
+      why="Runs one of the larger retail data-science and analytics "
+          "organisations in Toronto, with a real co-op intake. Rated as its "
+          "technology arm, not its stores.",
+      aliases=("Canadian Tire",), role_floor=True,
+      tags=("commerce", "toronto", "data")),
+    C("lululemon", "lululemon (Tech)", ca=2, us=2, cn=2, depth=3, role=3,
+      domain=3, founder=1, prog=3, tech=2,
+      why="Large Vancouver technology and data organisation behind the brand, "
+          "with genuine engineering and data-science co-op roles.",
+      aliases=("lululemon", "Lululemon"), role_floor=True,
+      tags=("commerce", "canada", "data")),
+    C("aritzia", "Aritzia (Tech)", ca=2, us=1, cn=1, depth=2, role=3, domain=3,
+      founder=1, prog=2, tech=2,
+      why="Vancouver fashion retailer with a growing data and e-commerce "
+          "engineering team.",
+      aliases=("Aritzia",), role_floor=True, tags=("commerce", "canada", "data")),
+    C("sobeysdigital", "Sobeys Digital (Voilà)", ca=2, us=0, cn=0, depth=2,
+      role=3, domain=2, founder=1, prog=2, tech=2,
+      why="The technology arm behind Sobeys' e-commerce (Voilà), with real data "
+          "and platform engineering.",
+      aliases=("Sobeys",), role_floor=True, tags=("commerce", "canada")),
+]
+
+# =========================================================================
+# Hardware, robotics and space with substantial data/software work.
+# =========================================================================
+_DEEPTECH: list[CompanyProfile] = [
+    C("cognitivesystems", "Cognitive Systems", ca=1, us=1, cn=0, depth=1,
+      role=2, domain=3, founder=2, prog=2, tech=2,
+      why="Waterloo wifi-sensing company doing genuine signal-processing and ML "
+          "on the edge.",
+      tags=("deeptech", "canada", "ai")),
+    C("kepler", "Kepler Communications", ca=1, us=1, cn=0, depth=2, role=2,
+      domain=2, founder=2, prog=2, tech=2,
+      why="Toronto space-communications company with real software and data "
+          "systems work.",
+      tags=("deeptech", "toronto")),
+    C("mda", "MDA Space", ca=2, us=1, cn=0, depth=3, role=2, domain=2,
+      founder=1, prog=3, tech=2,
+      why="Canada's flagship space-robotics company (BC/Ontario) with a large, "
+          "established co-op programme.",
+      tags=("deeptech", "canada", "robotics")),
+]
+
+# =========================================================================
+# More health-data / clinical-AI (kept as one direction among several).
+# =========================================================================
+_HEALTH_2: list[CompanyProfile] = [
+    C("semantichealth", "Semantic Health", ca=1, us=1, cn=0, depth=1, role=2,
+      domain=3, founder=3, prog=1, tech=2,
+      why="Toronto clinical-NLP and medical-coding AI — almost identical to his "
+          "Remeda work mapping clinical text to standardised codes. The single "
+          "closest match in the registry.",
+      tags=("health", "toronto", "ai")),
+    C("phenotips", "PhenoTips", ca=1, us=1, cn=0, depth=1, role=2, domain=3,
+      founder=2, prog=1, tech=2,
+      why="Toronto genomics and health-data platform used by hospitals.",
+      tags=("health", "toronto", "data")),
+    C("novari", "Novari Health", ca=1, us=0, cn=0, depth=1, role=2, domain=3,
+      founder=2, prog=1, tech=1,
+      why="Ontario health-workflow and e-referral software working directly "
+          "with provincial health systems.",
+      tags=("health", "canada")),
+    C("cortico", "Cortico Health", ca=1, us=0, cn=0, depth=1, role=2, domain=3,
+      founder=3, prog=1, tech=2,
+      why="Toronto primary-care AI startup; small, close to clinical users.",
+      tags=("health", "toronto", "ai")),
+    C("proteinqure", "ProteinQure", ca=1, us=1, cn=0, depth=1, role=1, domain=3,
+      founder=2, prog=1, tech=3,
+      why="Toronto computational-protein-design company; deep ML, small and "
+          "research-heavy.",
+      tags=("health", "toronto", "ai")),
+    C("telushealth", "TELUS Health", ca=3, us=1, cn=0, depth=3, role=3,
+      domain=3, founder=1, prog=3, tech=2,
+      why="Canada's largest digital-health organisation, with a broad clinical "
+          "data footprint and a real student intake.",
+      role_floor=True, tags=("health", "canada", "data")),
+    C("medme", "MedMe Health", ca=1, us=0, cn=0, depth=1, role=2, domain=3,
+      founder=3, prog=1, tech=2,
+      why="Toronto pharmacy-software company scaling clinical services; a co-op "
+          "sees product and customers.",
+      tags=("health", "toronto")),
+    C("rocketdoctor", "Rocket Doctor", ca=1, us=1, cn=0, depth=1, role=2,
+      domain=3, founder=3, prog=1, tech=1,
+      why="Toronto telemedicine platform with real health-data work at a small "
+          "scale.",
+      tags=("health", "toronto")),
+]
+
+# =========================================================================
+# More fintech — payments, banking-as-a-service, SMB.
+# =========================================================================
+_FINTECH_2: list[CompanyProfile] = [
+    C("flinks", "Flinks", ca=2, us=1, cn=0, depth=2, role=3, domain=3,
+      founder=2, prog=2, tech=2,
+      why="Montreal open-banking data platform (backed by National Bank) — "
+          "fintech plus real data-pipeline engineering, a strong fit.",
+      tags=("fintech", "canada", "data")),
+    C("arteriaai", "Arteria AI", ca=1, us=1, cn=0, depth=2, role=2, domain=3,
+      founder=3, prog=1, tech=2,
+      why="Toronto AI for financial agreements and documentation — applied AI "
+          "on financial data with enterprise buyers.",
+      tags=("fintech", "toronto", "ai")),
+    C("freshbooks", "FreshBooks", ca=2, us=1, cn=0, depth=3, role=3, domain=3,
+      founder=2, prog=3, tech=2,
+      why="Toronto cloud-accounting company and one of the larger local co-op "
+          "employers; fintech-adjacent data and product work.",
+      tags=("fintech", "toronto", "saas")),
+    C("moneris", "Moneris", ca=3, us=0, cn=0, depth=3, role=3, domain=3,
+      founder=1, prog=3, tech=1,
+      why="Canada's largest payment processor (Toronto, RBC/BMO joint venture) "
+          "with a big technology organisation and co-op intake.",
+      role_floor=True, tags=("fintech", "toronto")),
+    C("symcor", "Symcor", ca=1, us=0, cn=0, depth=3, role=3, domain=3,
+      founder=1, prog=2, tech=1,
+      why="Toronto financial-data-processing company owned by the big banks; "
+          "large-scale data engineering, unglamorous but real.",
+      role_floor=True, tags=("fintech", "toronto", "data")),
+    C("nestwealth", "Nest Wealth", ca=1, us=0, cn=0, depth=1, role=2, domain=3,
+      founder=2, prog=1, tech=2,
+      why="Toronto robo-advisor and wealth-tech platform.",
+      tags=("fintech", "toronto")),
+    C("conquest", "Conquest Planning", ca=1, us=1, cn=0, depth=2, role=2,
+      domain=3, founder=2, prog=1, tech=2,
+      why="Winnipeg/Toronto financial-planning AI, scaling fast with bank "
+          "partnerships.",
+      tags=("fintech", "canada", "ai")),
+    C("brim", "Brim Financial", ca=1, us=1, cn=0, depth=2, role=2, domain=3,
+      founder=3, prog=1, tech=2,
+      why="Toronto credit-card-platform-as-a-service; real fintech engineering "
+          "with enterprise customers.",
+      tags=("fintech", "toronto")),
+    C("relayfi", "Relay", ca=1, us=1, cn=0, depth=1, role=2, domain=3,
+      founder=3, prog=1, tech=2,
+      why="Toronto SMB banking platform; small, fast, close to the product.",
+      tags=("fintech", "toronto")),
+    C("loopfin", "Loop", ca=1, us=0, cn=0, depth=1, role=2, domain=3, founder=3,
+      prog=1, tech=2,
+      why="Toronto cross-border banking and cards for businesses.",
+      tags=("fintech", "toronto")),
+    C("caary", "Caary", ca=1, us=0, cn=0, depth=1, role=2, domain=3, founder=3,
+      prog=1, tech=1,
+      why="Toronto SMB credit and spend-management platform; small and "
+          "close to the product.",
+      tags=("fintech", "toronto")),
+    C("nesto", "nesto", ca=1, us=0, cn=0, depth=2, role=2, domain=3, founder=2,
+      prog=1, tech=2,
+      why="Montreal digital-mortgage platform with real data and product work.",
+      tags=("fintech", "canada")),
+    C("ratehub", "Ratehub", ca=2, us=0, cn=0, depth=2, role=2, domain=3,
+      founder=2, prog=1, tech=1,
+      why="Toronto personal-finance marketplace and fintech.",
+      tags=("fintech", "toronto")),
+]
+
 ALL_PROFILES: list[CompanyProfile] = [
     *_NAMED_TARGETS, *_HEALTH, *_AI, *_FINTECH, *_FINANCE, *_SAAS, *_GLOBAL,
     *_FINANCE_GLOBAL, *_HEALTH_DATA, *_RESEARCH, *_ENTERPRISE, *_CANADA_TECH,
-    *_PUBLIC,
+    *_PUBLIC, *_INVESTMENT, *_GLOBAL_TECH_2, *_CANADA_TECH_2, *_GAMING,
+    *_INSURANCE_2, *_RETAIL_TECH, *_DEEPTECH, *_HEALTH_2, *_FINTECH_2,
 ]
 BY_KEY: dict[str, CompanyProfile] = {p.key: p for p in ALL_PROFILES}
 
