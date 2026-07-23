@@ -19,7 +19,9 @@ services:
       - key: APP_SECRET_KEY
         generateValue: true
       - key: SEED_ON_START
-        value: "true"          # loads fictional demo jobs so the UI has data
+        value: "false"         # NO fictional data. Real postings arrive via the
+                               # Refresh button (POST /pool/refresh), which syncs
+                               # the verified sources into the production DB.
       - key: API_CORS_ORIGINS
         sync: false             # set to your https://<app>.vercel.app after deploy
       - key: API_TOKEN
