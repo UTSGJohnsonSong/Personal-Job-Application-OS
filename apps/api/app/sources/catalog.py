@@ -37,12 +37,17 @@ class CanonicalPolicy(StrEnum):
 
 
 class Maturity(StrEnum):
-    LIVE = "live"                      # verified against the real source
-    IMPLEMENTED = "implemented"        # code exists, not yet verified live
-    NEEDS_ENDPOINT = "needs_endpoint"  # reachable, but no machine-readable feed
-    PROBE = "probe"                    # entry point still unknown
-    BLOCKED = "blocked"                # declines automated access — do NOT scrape
-    PLANNED = "planned"
+    """Status must reflect an actual probe, never merely that code exists."""
+
+    LIVE = "LIVE"                    # verified against the real source, syncing
+    IMPLEMENTED_UNVERIFIED = "IMPLEMENTED_UNVERIFIED"  # code + unit tests only
+    NEEDS_ENDPOINT = "NEEDS_ENDPOINT"  # reachable, no machine-readable feed found
+    PROBE = "PROBE"                  # entry point still unknown
+    USER_IMPORT = "USER_IMPORT"      # account-bound; user supplies the data
+    BLOCKED = "BLOCKED"              # declines automated access — do NOT scrape
+    DEGRADED = "DEGRADED"            # previously LIVE, now failing or partial
+    DISABLED = "DISABLED"            # deliberately turned off
+    PLANNED = "PLANNED"
 
 
 @dataclass(frozen=True)
@@ -87,7 +92,7 @@ ATS: list[SourceSpec] = [
     ),
     SourceSpec(
         "smartrecruiters", "SmartRecruiters", "ats", A.PUBLIC_API, 1,
-        C.ALREADY_CANONICAL, "smartrecruiters", M.IMPLEMENTED,
+        C.ALREADY_CANONICAL, "smartrecruiters", M.IMPLEMENTED_UNVERIFIED,
         "Documented public API: api.smartrecruiters.com/v1/companies/{id}/postings.",
         {"external_id": "<company id>"},
     ),
@@ -112,21 +117,21 @@ ATS: list[SourceSpec] = [
     ),
     SourceSpec(
         "taleo_orc", "Oracle Recruiting / Taleo", "ats", A.PUBLIC_API, 1,
-        C.ALREADY_CANONICAL, "oracle_orc", M.IMPLEMENTED,
+        C.ALREADY_CANONICAL, "oracle_orc", M.IMPLEMENTED_UNVERIFIED,
         "Oracle Cloud Recruiting public REST resource "
         "(recruitingCEJobRequisitions). Needs a tenant host to verify.",
         {"host": "<tenant>.oraclecloud.com", "site": "CX_1"},
     ),
     SourceSpec(
         "jsonld_career_page", "Generic career page (JSON-LD)", "ats",
-        A.PUBLIC_PAGE, 1, C.ALREADY_CANONICAL, "jsonld", M.IMPLEMENTED,
+        A.PUBLIC_PAGE, 1, C.ALREADY_CANONICAL, "jsonld", M.IMPLEMENTED_UNVERIFIED,
         "schema.org/JobPosting embedded in the employer's own page. One connector "
         "unlocks many employers at once; unit-tested against sample markup.",
         {"urls": ["<career page urls>"]},
     ),
     SourceSpec(
         "sitemap_career_page", "Generic career page (sitemap)", "ats",
-        A.PUBLIC_PAGE, 1, C.ALREADY_CANONICAL, "sitemap", M.IMPLEMENTED,
+        A.PUBLIC_PAGE, 1, C.ALREADY_CANONICAL, "sitemap", M.IMPLEMENTED_UNVERIFIED,
         "sitemap.xml -> job URLs -> JSON-LD extraction per page.",
         {"sitemap_url": "<sitemap>", "job_pattern": "job|career"},
     ),
@@ -179,20 +184,20 @@ GOVERNMENT: list[SourceSpec] = [
 USER_SOURCES: list[SourceSpec] = [
     SourceSpec(
         "uoft_clnx", "UofT CLNx / Co-op portal", "institution", A.USER_IMPORT, 2,
-        C.RESOLVE_TO_EMPLOYER, "user_import", M.IMPLEMENTED,
+        C.RESOLVE_TO_EMPLOYER, "user_import", M.USER_IMPORT,
         "PROBED 2026-07-22: HTTP 403 without a session, exactly as expected. "
         "Behind student login — the user exports or pastes postings and the "
         "system never authenticates as the student.",
     ),
     SourceSpec(
         "linkedin", "LinkedIn (user import)", "aggregator", A.USER_IMPORT, 3,
-        C.RESOLVE_TO_EMPLOYER, "user_import", M.IMPLEMENTED,
+        C.RESOLVE_TO_EMPLOYER, "user_import", M.USER_IMPORT,
         "Account automation is an explicit non-goal. Saved-jobs export or pasted "
         "URLs only; every posting must resolve to the employer's own ATS.",
     ),
     SourceSpec(
         "indeed_email", "Indeed job alert emails", "aggregator", A.USER_IMPORT, 3,
-        C.RESOLVE_TO_EMPLOYER, "user_import", M.IMPLEMENTED,
+        C.RESOLVE_TO_EMPLOYER, "user_import", M.USER_IMPORT,
         "Parsed from alert emails the user forwards or connects — never by "
         "scraping Indeed.",
     ),

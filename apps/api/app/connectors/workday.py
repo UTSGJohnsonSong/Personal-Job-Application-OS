@@ -15,7 +15,9 @@ from app.connectors.base import Connector, ConnectorError, HttpLike, content_has
 from app.schemas.connector import ConnectorResult, RawJob, RawLocation, SourceConfig
 
 PAGE_SIZE = 20
-MAX_PAGES = 10  # cap: never crawl an entire enterprise board in one pass
+# Cap so we never crawl an entire enterprise board in one pass. Overridable per
+# source via config["max_pages"]; targeted `search` terms keep this small.
+MAX_PAGES = 25
 
 
 def _parse_posted(text: str | None) -> datetime | None:
@@ -80,8 +82,13 @@ class WorkdayConnector(Connector):
         base = self.public_base(tenant, wd, site)
         raw_jobs: list[RawJob] = []
         seen: set[str] = set()
+        max_pages = int(cfg.get("max_pages", MAX_PAGES))
+        # Workday reports `total` ONLY on the first page; later pages report 0.
+        # Trusting it per-page stops paging after page two and silently loses
+        # almost the whole board, so capture it once.
+        reported_total: int | None = None
 
-        for page in range(MAX_PAGES):
+        for page in range(max_pages):
             body = {
                 "appliedFacets": {},
                 "limit": PAGE_SIZE,
@@ -94,6 +101,9 @@ class WorkdayConnector(Connector):
             postings = payload.get("jobPostings") or []
             if not postings:
                 break
+            if page == 0:
+                total = payload.get("total")
+                reported_total = int(total) if isinstance(total, int) and total > 0 else None
 
             for p in postings:
                 path = p.get("externalPath") or ""
@@ -120,8 +130,14 @@ class WorkdayConnector(Connector):
                     )
                 )
 
-            total = payload.get("total")
-            if total is not None and (page + 1) * PAGE_SIZE >= total:
+            if len(postings) < PAGE_SIZE:
+                break  # short page => end of results
+            if reported_total is not None and (page + 1) * PAGE_SIZE >= reported_total:
                 break
 
-        return ConnectorResult(raw_jobs=raw_jobs, fetched_at=datetime.now(UTC))
+        return ConnectorResult(
+            raw_jobs=raw_jobs,
+            fetched_at=datetime.now(UTC),
+            diagnostics={"reported_total": reported_total, "collected": len(raw_jobs),
+                         "pages_capped": len(raw_jobs) >= max_pages * PAGE_SIZE},
+        )

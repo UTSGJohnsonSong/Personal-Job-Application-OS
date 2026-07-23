@@ -74,7 +74,8 @@ def test_first_party_ats_are_already_canonical():
 def test_every_catalog_connector_is_registered():
     registered = set(all_connectors())
     for spec in CATALOG:
-        if spec.connector_key and spec.maturity in (Maturity.LIVE, Maturity.IMPLEMENTED):
+        if spec.connector_key and spec.maturity in (
+                Maturity.LIVE, Maturity.IMPLEMENTED_UNVERIFIED, Maturity.USER_IMPORT):
             assert spec.connector_key in registered, spec.key
 
 
@@ -305,3 +306,73 @@ def test_registry_exposes_all_implemented_connectors():
     for key in ("greenhouse", "lever", "ashby", "smartrecruiters", "workday",
                 "oracle_orc", "jsonld", "sitemap", "user_import", "generic_ats"):
         assert get_connector(key) is not None
+
+
+# ------------------------------------------------------------------- Workday
+
+@pytest.mark.asyncio
+async def test_workday_pagination_survives_total_zero_on_later_pages():
+    """Workday reports `total` only on page 1; later pages report 0.
+
+    Trusting it per-page stopped paging after two pages and silently lost almost
+    the entire board (TD: 40 of 1815 postings). Regression guard.
+    """
+    from app.connectors.workday import WorkdayConnector
+
+    PAGE = 20
+    TOTAL = 95
+
+    class FakeWorkday:
+        def __init__(self):
+            self.calls = 0
+
+        async def post_json(self, url, *, json, headers=None):
+            offset = json["offset"]
+            remaining = max(0, TOTAL - offset)
+            n = min(PAGE, remaining)
+            self.calls += 1
+            postings = [
+                {"title": f"Job {offset + i}",
+                 "externalPath": f"/job/x/{offset + i}",
+                 "bulletFields": [f"R_{offset + i}"],
+                 "locationsText": "Toronto, Ontario",
+                 "postedOn": "Posted 3 Days Ago"}
+                for i in range(n)
+            ]
+            # total only on the first page — exactly what the real API does
+            return 200, {"jobPostings": postings,
+                         "total": TOTAL if offset == 0 else 0}, {}
+
+    http = FakeWorkday()
+    res = await WorkdayConnector().fetch(
+        SourceConfig(connector_key="workday", external_id="acme", display_name="Acme",
+                     config={"tenant": "acme", "wd": 3, "site": "External"}),
+        http,
+    )
+    assert len(res.raw_jobs) == TOTAL, f"collected {len(res.raw_jobs)} of {TOTAL}"
+    assert res.diagnostics["reported_total"] == TOTAL
+    assert res.raw_jobs[0].canonical_application_url.startswith(
+        "https://acme.wd3.myworkdayjobs.com/en-US/External/job/"
+    )
+
+
+@pytest.mark.asyncio
+async def test_workday_respects_max_pages_cap():
+    """Never crawl an entire enterprise board in one pass."""
+    from app.connectors.workday import WorkdayConnector
+
+    class Endless:
+        async def post_json(self, url, *, json, headers=None):
+            off = json["offset"]
+            return 200, {"jobPostings": [
+                {"title": f"J{off + i}", "externalPath": f"/job/{off + i}",
+                 "bulletFields": [f"R{off + i}"]} for i in range(20)
+            ], "total": 100000 if off == 0 else 0}, {}
+
+    res = await WorkdayConnector().fetch(
+        SourceConfig(connector_key="workday", external_id="a", display_name="a",
+                     config={"tenant": "a", "wd": 3, "site": "S", "max_pages": 3}),
+        Endless(),
+    )
+    assert len(res.raw_jobs) == 60
+    assert res.diagnostics["pages_capped"] is True
