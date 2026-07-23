@@ -50,6 +50,26 @@ class Provenance(StrEnum):
     USER_OVERRIDE = "user_override"  # the candidate overruled both
 
 
+class Posture(StrEnum):
+    """How to act on a company, given how its value and access diverge."""
+
+    BALANCED = "balanced"              # apply normally
+    WORTH_FORCING = "worth_forcing"    # worth more than it is reachable:
+                                       # referral, cold outreach, keep watching
+    FLOOR_ONLY = "floor_only"          # reachable but low value: never let it
+                                       # displace a real target
+
+
+# Below this, an offer is not worth taking on the company's merits alone — the
+# specific role would have to carry it. Calibrated so that the floor-only
+# public-sector employers fall below and every genuine platform clears it.
+OFFER_ACCEPT_THRESHOLD = 50.0
+
+# A company is only a floor option if its value is genuinely low, not merely
+# lower than how easy it is to reach.
+FLOOR_VALUE_CEILING = 62.0
+
+
 # Platform and personal scores have different distributions, so they cannot
 # share one set of cut points. Platform is anchored absolutely: 88 is the most
 # that recognition plus a student programme can earn, so S genuinely means
@@ -147,16 +167,44 @@ class CompanyProfile:
         return min(100.0, base + TECH_BONUS_PER_POINT * self.tech)
 
     @property
-    def personal_score(self) -> float:
-        """The same company weighted to what this candidate is actually building."""
+    def value_score(self) -> float:
+        """What the experience is worth once he is actually inside.
+
+        This is the number for an OFFER decision, where reachability has
+        already resolved. Nothing here asks whether he can get in.
+        """
         return 100.0 * (
-            0.20 * self.brand
-            + 0.20 * self.depth / 3.0
-            + 0.20 * self.role / 3.0
-            + 0.15 * self.domain / 3.0
-            + 0.15 * self.founder / 3.0
-            + 0.10 * self.program / 3.0
+            0.30 * self.brand
+            + 0.25 * self.tech / 3.0
+            + 0.25 * self.domain / 3.0
+            + 0.20 * self.founder / 3.0
         )
+
+    @property
+    def access_score(self) -> float:
+        """How reachable the company actually is for him.
+
+        Every input here is a probability term. They belong together and
+        nowhere near the value terms — an earlier version averaged all six
+        into one number, which meant "hard to get into" and "not worth much"
+        were indistinguishable in the output.
+        """
+        return 100.0 * (
+            0.40 * self.depth / 3.0
+            + 0.40 * self.role / 3.0
+            + 0.20 * self.program / 3.0
+        )
+
+    @property
+    def personal_score(self) -> float:
+        """Application priority: the geometric mean of value and access.
+
+        Geometric, not arithmetic, because an application is only worth making
+        when BOTH hold. An arithmetic mean scores a trivially reachable but
+        worthless employer the same as a balanced one — which is exactly how
+        floor options used to climb into A and had to be capped by hand.
+        """
+        return (self.value_score * self.access_score) ** 0.5
 
     @property
     def algo_tier(self) -> str:
@@ -205,6 +253,32 @@ class CompanyProfile:
     def adjusted(self) -> bool:
         return (self.platform_tier != self.algo_tier
                 or self.personal_tier != self.algo_personal_tier)
+
+    @property
+    def posture(self) -> Posture:
+        """What to DO about this company, which a single tier cannot express.
+
+        Two companies can share a personal tier for opposite reasons: one is
+        hard to reach but worth a lot, the other is easy to reach and worth
+        little. They call for different actions, so the split is surfaced
+        rather than averaged away.
+        """
+        gap = self.value_score - self.access_score
+        # A gap alone is not enough. Access saturates at 100 for most large
+        # employers, so a strong company like Amazon reads as a large negative
+        # gap while being nothing like a floor option. Being easy to reach is
+        # not the same as being worth little, so FLOOR_ONLY also requires the
+        # value itself to be low in absolute terms.
+        if gap <= -15.0 and self.value_score < FLOOR_VALUE_CEILING:
+            return Posture.FLOOR_ONLY
+        if gap >= 20.0 and self.value_score >= OFFER_ACCEPT_THRESHOLD:
+            return Posture.WORTH_FORCING
+        return Posture.BALANCED
+
+    @property
+    def worth_taking_if_offered(self) -> bool:
+        """An offer decision uses value alone; access has already resolved."""
+        return self.value_score >= OFFER_ACCEPT_THRESHOLD
 
 
 def C(key: str, name: str, *, ca: int, us: int, cn: int, depth: int, role: int,

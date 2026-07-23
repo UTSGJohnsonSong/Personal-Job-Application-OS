@@ -23,6 +23,7 @@ from app.company.profiles import (
     EXCLUSIONS,
     PERSONAL_BANDS,
     TIER_BANDS,
+    Posture,
     adjustments,
     resolve,
     tier_counts,
@@ -150,10 +151,73 @@ def test_technical_reputation_only_ever_adds() -> None:
 
 
 def test_named_first_choices_are_floored() -> None:
-    """BioAdvance landed in C purely for being small; he named it Tier 1."""
+    """BioAdvance scores low purely for being small; he named it Tier 1."""
     bio = BY_KEY["bioadvance"]
-    assert bio.algo_personal_tier == "C"
+    assert bio.algo_personal_tier in ("C", "D")
     assert bio.personal_tier == "A"
+
+
+# --------------------------------------------------------------------------
+# Value and access are separate questions and must stay separate
+# --------------------------------------------------------------------------
+def test_value_score_ignores_reachability() -> None:
+    """An offer decision cannot be penalised for how hard the company was."""
+    openai = BY_KEY["openai"]
+    assert openai.access_score < 25  # no Canadian office, no student pipeline
+    assert openai.value_score > 90   # yet the experience is worth a great deal
+    assert openai.worth_taking_if_offered is True
+
+
+def test_application_priority_penalises_imbalance() -> None:
+    """Geometric, not arithmetic. An arithmetic mean would let a company that
+    is trivially reachable but worthless score like a balanced one, which is
+    how floor options used to climb into A."""
+    def arithmetic(p):
+        return (p.value_score + p.access_score) / 2
+
+    lopsided = BY_KEY["openai"]          # 93 value against 20 access
+    balanced = BY_KEY["wealthsimple"]    # strong on both
+    assert arithmetic(lopsided) - lopsided.personal_score > 10
+    assert arithmetic(balanced) - balanced.personal_score < 1
+    assert balanced.personal_score > 85
+
+
+def test_engineering_reputation_counts_toward_value() -> None:
+    """It carried zero weight in the previous blended personal score."""
+    assert BY_KEY["openai"].tech == 3
+    assert BY_KEY["cityoftoronto"].value_score < BY_KEY["cohere"].value_score
+
+
+def test_easy_to_reach_is_not_the_same_as_low_value() -> None:
+    """Amazon reads as a large negative value-access gap and is not a floor."""
+    for key in ("amazon", "microsoft", "shopify", "rbc"):
+        assert BY_KEY[key].posture is not Posture.FLOOR_ONLY, key
+
+
+def test_floor_only_matches_his_own_safety_tier() -> None:
+    """He named the big banks as the safety net, not as primary targets."""
+    for key in ("manulife", "sunlife", "bmo", "cibc"):
+        p = BY_KEY[key]
+        assert p.posture is Posture.FLOOR_ONLY, key
+        assert p.value_score < 62, key
+        assert p.access_score >= 90, key
+
+
+def test_worth_forcing_identifies_where_a_referral_pays() -> None:
+    """High value, low access: normal applications will not reach these."""
+    forcing = {p.key for p in ALL_PROFILES if p.posture is Posture.WORTH_FORCING}
+    assert {"openai", "anthropic"} <= forcing
+    # His sharpest domain match is also his least reachable cluster.
+    assert forcing & {"signal1", "pentavere", "talai", "bluedot"}
+    for key in forcing:
+        p = BY_KEY[key]
+        assert p.value_score - p.access_score >= 20, key
+
+
+def test_offer_threshold_separates_platforms_from_floors() -> None:
+    assert BY_KEY["canadapost"].worth_taking_if_offered is False
+    for key in ("openai", "anthropic", "cohere", "wealthsimple", "shopify"):
+        assert BY_KEY[key].worth_taking_if_offered is True, key
 
 
 def test_safety_nets_can_never_displace_a_real_target() -> None:
