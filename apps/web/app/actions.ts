@@ -50,3 +50,17 @@ export async function signOut() {
   (await cookies()).delete(SESSION_COOKIE);
   redirect("/login");
 }
+
+export async function rebuildInbox() {
+  const { inbox } = await import("@/lib/inbox");
+  await inbox.rebuild();
+  revalidatePath("/companies");
+  revalidatePath("/priority");
+  revalidatePath("/");
+}
+
+export async function chooseRole(formData: FormData) {
+  const { inbox } = await import("@/lib/inbox");
+  await inbox.choose(String(formData.get("chosen")), String(formData.get("rejected")));
+  revalidatePath("/priority");
+}

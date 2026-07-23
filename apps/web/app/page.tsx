@@ -1,14 +1,27 @@
+import Link from "next/link";
+
 import { ApiError } from "@/app/components/ApiError";
+import { Section } from "@/app/components/ScoreBits";
 import { api } from "@/lib/api";
+import { InboxDashboard, inbox } from "@/lib/inbox";
 
 // Data is per-request from the API; never prerender at build time.
 export const dynamic = "force-dynamic";
 
-function Stat({ label, value }: { label: string; value: number | string }) {
+function Stat({
+  label,
+  value,
+  hint,
+}: {
+  label: string;
+  value: number | string;
+  hint?: string;
+}) {
   return (
     <div className="rounded-lg border border-gray-800 bg-panel p-4">
       <div className="text-2xl font-semibold text-white">{value}</div>
       <div className="text-xs text-gray-400 mt-1">{label}</div>
+      {hint && <div className="text-[10px] text-gray-600 mt-0.5">{hint}</div>}
     </div>
   );
 }
@@ -16,42 +29,114 @@ function Stat({ label, value }: { label: string; value: number | string }) {
 export default async function DashboardPage() {
   let overview = null;
   let actions = null;
+  let inboxData: InboxDashboard | null = null;
   let error: string | null = null;
+
   try {
     [overview, actions] = await Promise.all([api.overview(), api.actionItems()]);
   } catch (e) {
     error = (e as Error).message;
   }
-
-  if (error) {
-    return <ApiError error={error} />;
+  try {
+    inboxData = await inbox.dashboard();
+  } catch {
+    inboxData = null; // inbox metrics are additive; the page still works without them
   }
 
+  if (error) return <ApiError error={error} />;
+
   const t = overview!.totals;
+  const m = inboxData?.metrics ?? {};
+
   return (
     <div className="space-y-8">
       <section>
-        <h1 className="text-lg font-semibold text-white mb-3">Overview</h1>
+        <h1 className="text-lg font-semibold text-white mb-3">Company Coverage</h1>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <Stat label="Jobs discovered" value={t.total_jobs} />
-          <Stat label="New today" value={t.new_today} />
-          <Stat label="Applyable now" value={t.applyable} />
-          <Stat label="Submitted" value={t.submitted} />
-          <Stat label="Submitted this week" value={t.submitted_this_week} />
-          <Stat label="Replied" value={t.replied} />
-          <Stat label="Interviews" value={t.interviews} />
-          <Stat label="Offers" value={t.offers} />
+          <Stat label="S-tier companies monitored" value={m.s_tier_companies_monitored ?? "—"} />
+          <Stat label="A-tier companies monitored" value={m.a_tier_companies_monitored ?? "—"} />
+          <Stat
+            label="Official source coverage"
+            value={
+              m.official_source_coverage != null
+                ? `${(m.official_source_coverage * 100).toFixed(0)}%`
+                : "—"
+            }
+            hint="roles with an employer-owned link"
+          />
+          <Stat label="Companies tracked" value={m.total_companies ?? "—"} />
         </div>
       </section>
 
       <section>
-        <h2 className="text-sm font-semibold text-white mb-2">Needs your attention</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <Stat label="Packets waiting confirmation" value={actions!.packets_waiting_confirmation} />
-          <Stat label="Deadlines within 48h" value={actions!.deadlines_within_48h} />
-          <Stat label="Submitted >2w, no update" value={actions!.stale_submitted_over_2w} />
+        <h2 className="text-sm font-semibold text-white mb-2">Opportunities</h2>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <Stat
+            label="High-priority roles across tiers"
+            value={m.high_priority_roles_across_tiers ?? "—"}
+            hint="priority ≥ 80"
+          />
+          <Stat
+            label="Companies with recommendations"
+            value={m.companies_with_recommended_applications ?? "—"}
+          />
+          <Stat
+            label="Companies near application limit"
+            value={m.companies_near_application_limit ?? "—"}
+          />
+          <Stat
+            label="High-potential unrated companies"
+            value={m.high_potential_unrated_companies ?? "—"}
+            hint="strong roles, thin company evidence"
+          />
         </div>
       </section>
+
+      <section>
+        <h2 className="text-sm font-semibold text-white mb-2">Pipeline</h2>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <Stat label="Jobs discovered" value={t.total_jobs} />
+          <Stat label="New today" value={t.new_today} />
+          <Stat label="Submitted" value={t.submitted} />
+          <Stat
+            label="Waiting for confirmation"
+            value={actions!.packets_waiting_confirmation}
+          />
+        </div>
+      </section>
+
+      {inboxData && inboxData.top_companies_requiring_action.length > 0 && (
+        <Section
+          title="Top Companies Requiring Action"
+          subtitle="Ordered by the strongest role currently open at each company."
+        >
+          <div className="space-y-2">
+            {inboxData.top_companies_requiring_action.map((c) => (
+              <div
+                key={c.company_id}
+                className="flex items-start gap-3 rounded border border-gray-800 bg-black/20 p-3"
+              >
+                <div className="w-10 text-right">
+                  <div className="text-sm text-white">{c.best_priority.toFixed(0)}</div>
+                  <div className="text-[10px] text-gray-600">best</div>
+                </div>
+                <div className="flex-1">
+                  <Link
+                    href={`/companies/${c.company_id}`}
+                    className="text-sm text-white hover:underline"
+                  >
+                    {c.name}
+                  </Link>
+                  <span className="text-[11px] text-gray-500 ml-2">Tier {c.tier}</span>
+                  <div className="text-[11px] text-gray-400 mt-1">
+                    {c.reasons.join(" · ")}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Section>
+      )}
 
       <section>
         <h2 className="text-sm font-semibold text-white mb-2">Funnel</h2>
@@ -70,15 +155,6 @@ export default async function DashboardPage() {
               <div className="w-8 text-right text-xs text-gray-300">{f.count}</div>
             </div>
           ))}
-        </div>
-      </section>
-
-      <section>
-        <h2 className="text-sm font-semibold text-white mb-2">Conversion</h2>
-        <div className="grid grid-cols-3 gap-3">
-          <Stat label="Submit → reply" value={`${(overview!.conversion.submit_to_reply * 100).toFixed(0)}%`} />
-          <Stat label="Reply → interview" value={`${(overview!.conversion.reply_to_interview * 100).toFixed(0)}%`} />
-          <Stat label="Interview → offer" value={`${(overview!.conversion.interview_to_offer * 100).toFixed(0)}%`} />
         </div>
       </section>
     </div>

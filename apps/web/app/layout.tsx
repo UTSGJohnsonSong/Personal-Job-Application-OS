@@ -5,6 +5,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { signOut } from "@/app/actions";
+import { VersionFooter } from "@/app/components/VersionFooter";
 import { SESSION_COOKIE, verifySession } from "@/lib/session";
 
 export const metadata: Metadata = {
@@ -40,7 +41,8 @@ export default async function RootLayout({
               <span className="font-semibold text-white">Job Application OS</span>
               <nav className="flex gap-4 text-sm text-gray-400">
                 <Link href="/" className="hover:text-white">Dashboard</Link>
-                <Link href="/inbox" className="hover:text-white">Job Inbox</Link>
+                <Link href="/companies" className="hover:text-white">Companies</Link>
+                <Link href="/priority" className="hover:text-white">Priority</Link>
                 <Link href="/rankings" className="hover:text-white">Rankings</Link>
                 <Link href="/queue" className="hover:text-white">Apply Queue</Link>
                 <Link href="/records" className="hover:text-white">Applications</Link>
@@ -55,6 +57,7 @@ export default async function RootLayout({
             </header>
           )}
           <main className="p-6 max-w-6xl mx-auto">{children}</main>
+          {!isLogin && <VersionFooter />}
         </div>
       </body>
     </html>

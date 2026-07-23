@@ -1,76 +1,10 @@
-import { ApiError } from "@/app/components/ApiError";
-import { queueAdd } from "@/app/actions";
-import { api, JobItem } from "@/lib/api";
+import { redirect } from "next/navigation";
 
-// Data is per-request from the API; never prerender at build time.
-export const dynamic = "force-dynamic";
-
-function priorityLabel(p: number): string {
-  return p === 1 ? "First-party ATS" : p === 2 ? "Gov/University" : "Aggregator";
-}
-
-function JobCard({ job }: { job: JobItem }) {
-  return (
-    <div className="rounded-lg border border-gray-800 bg-panel p-4">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <div className="text-white font-medium">{job.title}</div>
-          <div className="text-xs text-gray-400 mt-1">
-            {job.remote_mode ?? "—"} · {priorityLabel(job.source_priority)} ·{" "}
-            <span className="capitalize">{job.current_status}</span>
-          </div>
-        </div>
-        <div className="text-right">
-          <div className="text-xs text-gray-500">freshness</div>
-          <div className="text-sm text-gray-200">{(job.freshness_score * 100).toFixed(0)}%</div>
-        </div>
-      </div>
-      <div className="flex items-center gap-3 mt-2">
-        {job.canonical_application_url && (
-          <a
-            href={job.canonical_application_url}
-            target="_blank"
-            rel="noreferrer"
-            className="text-xs text-accent hover:underline"
-          >
-            Official application link ↗
-          </a>
-        )}
-        <form action={queueAdd} className="ml-auto">
-          <input type="hidden" name="job_id" value={job.id} />
-          <button className="text-xs px-2 py-1 rounded border border-gray-700 text-gray-300 hover:border-accent hover:text-accent">
-            + Add to Apply Queue
-          </button>
-        </form>
-      </div>
-    </div>
-  );
-}
-
-export default async function InboxPage() {
-  let items: JobItem[] = [];
-  let error: string | null = null;
-  try {
-    const res = await api.jobs();
-    items = res.items;
-  } catch (e) {
-    error = (e as Error).message;
-  }
-
-  return (
-    <div className="space-y-4">
-      <h1 className="text-lg font-semibold text-white">Job Inbox</h1>
-      {error && <ApiError error={error} />}
-      {!error && items.length === 0 && (
-        <div className="text-sm text-gray-400">
-          No jobs yet. Run the seed: <code>python -m app.seed.seed_data</code>.
-        </div>
-      )}
-      <div className="grid gap-3">
-        {items.map((j) => (
-          <JobCard key={j.id} job={j} />
-        ))}
-      </div>
-    </div>
-  );
+/**
+ * The Job Inbox is now company-tier-centric: Tier -> Company -> top roles.
+ * The old flat list showed a bare freshness percentage with no company context,
+ * so it is retired rather than kept running alongside the new views.
+ */
+export default function InboxPage() {
+  redirect("/companies");
 }

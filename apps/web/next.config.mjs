@@ -11,6 +11,10 @@ const nextConfig = {
   outputFileTracingRoot: path.join(__dirname, "../../"),
   env: {
     NEXT_PUBLIC_API_BASE: process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8000",
+    // Build provenance surfaced in the footer.
+    NEXT_PUBLIC_GIT_COMMIT:
+      process.env.VERCEL_GIT_COMMIT_SHA || process.env.NEXT_PUBLIC_GIT_COMMIT || "local",
+    NEXT_PUBLIC_BUILD_TIME: new Date().toISOString(),
   },
 };
 
