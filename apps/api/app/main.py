@@ -15,6 +15,7 @@ from app.api.routes import (
     jobs,
     manual,
     personal,
+    pool,
     queue,
     records,
     registry,
@@ -70,6 +71,7 @@ app.include_router(manual.router)
 app.include_router(personal.router)
 app.include_router(inbox.router)
 app.include_router(registry.router)
+app.include_router(pool.router)
 
 
 @app.get("/")
