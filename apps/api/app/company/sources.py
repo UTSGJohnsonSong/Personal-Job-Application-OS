@@ -174,6 +174,103 @@ VERIFIED: list[OfficialSource] = [
         "lever", "kabam",
         observed_jobs=16, observed_canada=16, observed_student_canada=0,
         note="Vancouver studio, entirely Canadian board."),
+    # --- profiles.py `boards=` entries that were declared but never carried
+    # into this registry, so sync_verified.py silently skipped all 28 of them.
+    # Same bug class as the block above; probed 2026-07-23 with
+    # scripts/probe_missing_boards.py rather than assumed from the slug.
+    OfficialSource(
+        "waabi", SourceStatus.VERIFIED, "https://waabi.ai/careers",
+        "lever", "waabi",
+        observed_jobs=58, observed_canada=32, observed_student_canada=2,
+        note="2026 PhD Research Scientist intern and a research co-op open."),
+    OfficialSource(
+        "tenstorrent", SourceStatus.VERIFIED, "https://tenstorrent.com/careers",
+        "greenhouse", "tenstorrent",
+        observed_jobs=127, observed_canada=43, observed_student_canada=0),
+    OfficialSource(
+        "databricks", SourceStatus.VERIFIED,
+        "https://www.databricks.com/company/careers",
+        "greenhouse", "databricks",
+        observed_jobs=800, observed_canada=24, observed_student_canada=0),
+    OfficialSource(
+        "mongodb", SourceStatus.VERIFIED, "https://www.mongodb.com/careers",
+        "greenhouse", "mongodb",
+        observed_jobs=401, observed_canada=23, observed_student_canada=0),
+    OfficialSource(
+        "d2l", SourceStatus.VERIFIED, "https://www.d2l.com/careers/",
+        "greenhouse", "d2l",
+        observed_jobs=27, observed_canada=19, observed_student_canada=0),
+    OfficialSource(
+        "achievers", SourceStatus.VERIFIED, "https://www.achievers.com/careers/",
+        "lever", "achievers",
+        observed_jobs=23, observed_canada=19, observed_student_canada=1,
+        note="A Content Co-op is open in Toronto."),
+    OfficialSource(
+        "trulioo", SourceStatus.VERIFIED, "https://www.trulioo.com/careers",
+        "ashby", "trulioo",
+        observed_jobs=25, observed_canada=12, observed_student_canada=0),
+    OfficialSource(
+        "faire", SourceStatus.VERIFIED, "https://www.faire.com/careers",
+        "greenhouse", "faire",
+        observed_jobs=66, observed_canada=13, observed_student_canada=0),
+    OfficialSource(
+        "snowflake", SourceStatus.VERIFIED, "https://careers.snowflake.com",
+        "ashby", "snowflake",
+        observed_jobs=411, observed_canada=9, observed_student_canada=0),
+    OfficialSource(
+        "coinbase", SourceStatus.VERIFIED, "https://www.coinbase.com/careers",
+        "greenhouse", "coinbase",
+        observed_jobs=154, observed_canada=9, observed_student_canada=0),
+    OfficialSource(
+        "hootsuite", SourceStatus.VERIFIED, "https://hootsuite.com/careers",
+        "greenhouse", "hootsuite",
+        observed_jobs=18, observed_canada=8, observed_student_canada=0),
+    OfficialSource(
+        "anthropic", SourceStatus.VERIFIED, "https://www.anthropic.com/careers",
+        "greenhouse", "anthropic",
+        observed_jobs=409, observed_canada=7, observed_student_canada=0),
+    OfficialSource(
+        "datadog", SourceStatus.VERIFIED, "https://www.datadoghq.com/careers/",
+        "greenhouse", "datadog",
+        observed_jobs=419, observed_canada=2, observed_student_canada=0),
+    OfficialSource(
+        "benchsci", SourceStatus.VERIFIED, "https://www.benchsci.com/careers",
+        "lever", "benchsci",
+        observed_jobs=1, observed_canada=1, observed_student_canada=0,
+        note="Board only carries a single 'General Interest' Toronto req at "
+             "probe time — quiet, not a bad slug (title reads as a real "
+             "BenchSci posting, not a stray same-slug company)."),
+    OfficialSource(
+        "marsdd", SourceStatus.VERIFIED, "https://www.marsdd.com/careers/",
+        "bamboohr", "marsdd",
+        observed_jobs=3, observed_canada=3, observed_student_canada=0,
+        note="Small nonprofit board, all Toronto roles."),
+    OfficialSource(
+        "cityoftoronto", SourceStatus.VERIFIED,
+        "https://jobs.toronto.ca/jobsatcity",
+        "successfactors", "https://jobs.toronto.ca/jobsatcity",
+        _sf("https://jobs.toronto.ca/jobsatcity", "City of Toronto"),
+        observed_jobs=68, observed_canada=48, observed_student_canada=0),
+    # US-headquartered boards with little to no Canadian presence, kept
+    # VERIFIED (not dropped) because a probe answered honestly; the near-zero
+    # Canada count is the true state of the board, not a connector failure.
+    OfficialSource(
+        "openai", SourceStatus.VERIFIED, "https://openai.com/careers",
+        "ashby", "openai",
+        observed_jobs=735, observed_canada=0, observed_student_canada=0,
+        note="No Canadian postings on the board at probe time."),
+    OfficialSource(
+        "cloudflare", SourceStatus.VERIFIED, "https://www.cloudflare.com/careers/",
+        "greenhouse", "cloudflare",
+        observed_jobs=268, observed_canada=0, observed_student_canada=0),
+    OfficialSource(
+        "figma", SourceStatus.VERIFIED, "https://www.figma.com/careers/",
+        "greenhouse", "figma",
+        observed_jobs=173, observed_canada=0, observed_student_canada=0),
+    OfficialSource(
+        "notion", SourceStatus.VERIFIED, "https://www.notion.com/careers",
+        "ashby", "notion",
+        observed_jobs=138, observed_canada=0, observed_student_canada=0),
 ]
 
 # ---------------------------------------------------------------------------
@@ -201,6 +298,32 @@ PARTIAL: list[OfficialSource] = [
              "300, so its Canadian count is a floor. Raising max_pages would "
              "capture more but the co-op stream is seasonal and worth a "
              "targeted search rather than a full crawl."),
+    # Workday boards from the profiles.py `boards=` gap (see VERIFIED block
+    # above) that hit the page cap exactly (10 pages * 20/page = 200) during
+    # the probe, so the true Canadian count is a floor, not the total.
+    OfficialSource(
+        "bmo", SourceStatus.PARTIAL, "https://jobs.bmo.com",
+        "workday", "bmo", _wd("bmo", "External", pages=25),
+        observed_jobs=200, observed_canada=122, observed_student_canada=2,
+        note="Probe hit the 200-job page cap; two Fall 2026 co-op postings "
+             "(Finance Analyst, Data Scientist) found already."),
+    OfficialSource(
+        "cibc", SourceStatus.PARTIAL, "https://jobs.cibc.com",
+        "workday", "cibc", _wd("cibc", "search", pages=25),
+        observed_jobs=200, observed_canada=152, observed_student_canada=0,
+        note="Probe hit the 200-job page cap; heavily Canadian board."),
+    OfficialSource(
+        "manulife", SourceStatus.PARTIAL, "https://www.manulife.ca/careers.html",
+        "workday", "manulife", _wd("manulife", "MFCJH_Jobs", pages=25),
+        observed_jobs=200, observed_canada=15, observed_student_canada=1,
+        note="Probe hit the 200-job page cap. site='External' refuses; "
+             "'MFCJH_Jobs' is the working site. A Fall Co-op 2026 AI "
+             "Enablement role is open in Toronto."),
+    OfficialSource(
+        "sunlife", SourceStatus.PARTIAL, "https://www.sunlife.ca/en/careers/",
+        "workday", "sunlife", _wd("sunlife", "Experienced", pages=25),
+        observed_jobs=200, observed_canada=44, observed_student_canada=0,
+        note="Probe hit the 200-job page cap."),
 ]
 
 # ---------------------------------------------------------------------------
@@ -266,6 +389,25 @@ MANUAL_ONLY: list[OfficialSource] = [
     OfficialSource("bioadvance", SourceStatus.MANUAL_ONLY, "",
                    note="No careers surface located yet. Named as a first choice, "
                         "so this needs a human check rather than another probe."),
+    # profiles.py declared a `boards=` guess for each of these; probed
+    # 2026-07-23 and the guess did not hold up (empty response or a board
+    # that looks like a different company/tenant), so they go to manual
+    # rather than being registered on unverified faith.
+    OfficialSource("visa", SourceStatus.MANUAL_ONLY,
+                   "https://corporate.visa.com/en/careers.html",
+                   note="The smartrecruiters/Visa board that answered had two "
+                        "postings (Austin, Bengaluru) with no Canadian roles — "
+                        "reads as a regional or stale tenant, not Visa's real "
+                        "board. Needs a better slug or a different connector."),
+    OfficialSource("benchling", SourceStatus.MANUAL_ONLY,
+                   "https://www.benchling.com/careers",
+                   note="Guessed greenhouse/benchling returned empty."),
+    OfficialSource("docebo", SourceStatus.MANUAL_ONLY,
+                   "https://www.docebo.com/company/careers/",
+                   note="Guessed greenhouse/docebo returned empty."),
+    OfficialSource("plaid", SourceStatus.MANUAL_ONLY,
+                   "https://plaid.com/careers/",
+                   note="Guessed greenhouse/plaid returned empty."),
 ]
 
 ALL_SOURCES: list[OfficialSource] = [*VERIFIED, *PARTIAL, *MANUAL_ONLY]
