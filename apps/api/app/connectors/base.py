@@ -28,6 +28,12 @@ class HttpLike(Protocol):
         """Required by boards whose public search endpoint is POST (Workday)."""
         ...
 
+    async def get_text(
+        self, url: str, *, headers: dict | None = None
+    ) -> tuple[int, str, dict]:
+        """Required by connectors that read public HTML (JSON-LD, sitemap)."""
+        ...
+
 
 @runtime_checkable
 class Connector(Protocol):
