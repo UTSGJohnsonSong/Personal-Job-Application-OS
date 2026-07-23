@@ -2,7 +2,7 @@ import Link from "next/link";
 
 import { ApiError } from "@/app/components/ApiError";
 import { Chip, Metric, Section } from "@/app/components/ScoreBits";
-import { POSTURE_COPY, RegistryDetail, registry } from "@/lib/registry";
+import { POSTURE_COPY, RegistryDetail, SOURCE_COPY, registry } from "@/lib/registry";
 
 export const dynamic = "force-dynamic";
 
@@ -91,10 +91,51 @@ export default async function CompanyRegistryPage({
             c.posture === "worth_forcing" ? "info" : "mute"
           } />
           {c.role_floor && <Chip label="" value="role-gated" tone="warn" />}
-          {!c.has_source && <Chip label="" value="no official source yet" tone="bad" />}
+          <Chip
+            label=""
+            value={SOURCE_COPY[c.source.status].text}
+            tone={SOURCE_COPY[c.source.status].tone as "good" | "warn" | "info" | "bad"}
+          />
         </div>
         <p className="text-sm text-gray-300 mt-3">{c.why}</p>
       </div>
+
+      <Section
+        title="Official source"
+        subtitle="Where postings actually come from. A company we cannot reach automatically stays in the system and goes to the manual queue — connector coverage never decides which employers exist."
+      >
+        <div className="text-xs space-y-1.5">
+          {c.source.careers_url && (
+            <a
+              href={c.source.careers_url}
+              target="_blank"
+              rel="noreferrer"
+              className="text-accent hover:underline break-all"
+            >
+              {c.source.careers_url}
+            </a>
+          )}
+          {c.source.connector && (
+            <div className="text-gray-400">
+              connector: <span className="text-gray-200">{c.source.connector}</span>
+            </div>
+          )}
+          {c.source.observed_jobs != null && (
+            <div className="text-gray-400">
+              observed {c.source.probed_on}:{" "}
+              <span className="text-gray-200">{c.source.observed_jobs}</span> postings ·{" "}
+              <span className="text-gray-200">{c.source.observed_canada}</span> Canadian ·{" "}
+              <span className="text-gray-200">
+                {c.source.observed_student_canada}
+              </span>{" "}
+              Canadian student
+            </div>
+          )}
+          {c.source.note && (
+            <p className="text-gray-500 leading-relaxed">{c.source.note}</p>
+          )}
+        </div>
+      </Section>
 
       <div className="grid md:grid-cols-2 gap-4">
         <Section

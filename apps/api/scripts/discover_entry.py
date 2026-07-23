@@ -96,8 +96,10 @@ async def inspect(http, name: str, url: str) -> dict:
     out["external_career_links"] = external[:8]
 
     endpoints = sorted(set(ENDPOINT_HINTS.findall(html or "")))
-    out["candidate_endpoints"] = [e for e in endpoints
-                                  if re.search(r"(job|search|posting|requisition|career)", e, re.I)][:8]
+    out["candidate_endpoints"] = [
+        e for e in endpoints
+        if re.search(r"(job|search|posting|requisition|career)", e, re.I)
+    ][:8]
 
     ld = re.findall(r'application/ld\+json[^>]*>(.*?)</script>', html or "", re.S)
     out["jsonld_blocks"] = len(ld)

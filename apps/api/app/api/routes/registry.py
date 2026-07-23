@@ -31,6 +31,8 @@ from app.company.profiles import (
     ranked,
     tier_counts,
 )
+from app.company.sources import BY_COMPANY as SOURCE_BY_COMPANY
+from app.company.sources import coverage as source_coverage
 
 router = APIRouter(prefix="/registry", tags=["registry"],
                    dependencies=[Depends(require_token)])
@@ -52,6 +54,37 @@ def _score_for(p: CompanyProfile, view: View) -> float:
     if view is View.PLATFORM:
         return p.platform_score
     return p.personal_score
+
+
+def _source_of(p: CompanyProfile) -> dict:
+    """Where a posting actually comes from — including "a human has to go".
+
+    Surfaced on every card so an employer we cannot reach stays visible. The
+    previous design let missing connector coverage remove companies entirely.
+    """
+    s = SOURCE_BY_COMPANY.get(p.key)
+    if s is not None:
+        return {
+            "status": s.status.value,
+            "automatable": s.automatable,
+            "careers_url": s.careers_url or None,
+            "connector": s.connector,
+            "observed_jobs": s.observed_jobs,
+            "observed_canada": s.observed_canada,
+            "observed_student_canada": s.observed_student_canada,
+            "note": s.note or None,
+            "probed_on": s.probed_on,
+        }
+    if p.boards:
+        return {"status": "verified", "automatable": True, "careers_url": None,
+                "connector": p.boards[0][0], "observed_jobs": None,
+                "observed_canada": None, "observed_student_canada": None,
+                "note": None, "probed_on": None}
+    return {"status": "searching", "automatable": False, "careers_url": None,
+            "connector": None, "observed_jobs": None, "observed_canada": None,
+            "observed_student_canada": None,
+            "note": "No source located yet — not reachable automatically or manually.",
+            "probed_on": None}
 
 
 def _card(p: CompanyProfile, view: View) -> dict:
@@ -79,7 +112,7 @@ def _card(p: CompanyProfile, view: View) -> dict:
         "override_reason": p.adjustment_reason,
         "why": p.why,
         "tags": list(p.tags),
-        "has_source": bool(p.boards),
+        "source": _source_of(p),
         "inputs": {
             "brand_ca": p.brand_ca, "brand_us": p.brand_us, "brand_cn": p.brand_cn,
             "tech": p.tech, "depth": p.depth, "role": p.role,
@@ -198,5 +231,6 @@ async def meta() -> dict:
         "source_coverage": {
             "with_known_board": sum(1 for p in ALL_PROFILES if p.boards),
             "without_source": sum(1 for p in ALL_PROFILES if not p.boards),
+            "by_status": source_coverage(),
         },
     }

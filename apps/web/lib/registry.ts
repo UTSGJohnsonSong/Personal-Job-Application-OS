@@ -35,6 +35,20 @@ export interface RegistryInputs {
   program: number;
 }
 
+export type SourceStatus = "verified" | "partial" | "manual_only" | "searching";
+
+export interface RegistrySource {
+  status: SourceStatus;
+  automatable: boolean;
+  careers_url: string | null;
+  connector: string | null;
+  observed_jobs: number | null;
+  observed_canada: number | null;
+  observed_student_canada: number | null;
+  note: string | null;
+  probed_on: string | null;
+}
+
 export interface RegistryCompany {
   key: string;
   name: string;
@@ -56,7 +70,7 @@ export interface RegistryCompany {
   override_reason: string | null;
   why: string;
   tags: string[];
-  has_source: boolean;
+  source: RegistrySource;
   inputs: RegistryInputs;
   assessed_on: string;
   valid_until: string;
@@ -91,7 +105,11 @@ export interface RegistryMeta {
   }[];
   excluded_categories: Record<string, string>;
   gated_categories: Record<string, { gate: string; reason: string }>;
-  source_coverage: { with_known_board: number; without_source: number };
+  source_coverage: {
+    with_known_board: number;
+    without_source: number;
+    by_status: Record<string, number>;
+  };
 }
 
 export interface RegistryDetail extends RegistryCompany {
@@ -153,6 +171,16 @@ export const ACTION_COPY: Record<ValueAction, { text: string; tone: string }> = 
   },
   already_in_apply_queue: { text: "Also in the apply queue", tone: "good" },
   watch: { text: "Watch only", tone: "mute" },
+};
+
+// A company we cannot reach automatically is still a company to apply to.
+// Labelling that plainly is what stops connector coverage from quietly
+// deciding which employers exist.
+export const SOURCE_COPY: Record<SourceStatus, { text: string; tone: string }> = {
+  verified: { text: "Source verified", tone: "good" },
+  partial: { text: "Partial board — absence proves nothing", tone: "warn" },
+  manual_only: { text: "Apply manually — no automatable feed", tone: "info" },
+  searching: { text: "No source located yet", tone: "bad" },
 };
 
 export const POSTURE_COPY: Record<Posture, string> = {

@@ -8,6 +8,7 @@ official careers-site URL as the canonical application link.
 
 from __future__ import annotations
 
+import re
 from datetime import UTC, datetime, timedelta
 
 from app.connectors._util import strip_html
@@ -18,6 +19,35 @@ PAGE_SIZE = 20
 # Cap so we never crawl an entire enterprise board in one pass. Overridable per
 # source via config["max_pages"]; targeted `search` terms keep this small.
 MAX_PAGES = 25
+
+
+# A requisition id: upper-case, contains a digit, no spaces or separators.
+# Anything else in bulletFields is descriptive - usually the location.
+_REQ_ID = re.compile(r"^[A-Z0-9][A-Z0-9_\-/.]*\d[A-Z0-9_\-/.]*$")
+
+
+def _bullets(p: dict) -> list[str]:
+    return [str(b).strip() for b in (p.get("bulletFields") or []) if b]
+
+
+def _bullet_req_id(p: dict) -> str | None:
+    """The requisition id, when the tenant puts one in bulletFields."""
+    for b in _bullets(p):
+        if _REQ_ID.match(b):
+            return b
+    return None
+
+
+def _bullet_location(p: dict) -> str | None:
+    """Location for tenants that omit `locationsText`.
+
+    Those tenants spread the location across bulletFields instead - typically
+    a city list and a region list, followed by the requisition id. Dropping the
+    id and joining the rest recovers a usable location string; without this the
+    posting looks location-less and never matches a Canadian filter.
+    """
+    parts = [b for b in _bullets(p) if not _REQ_ID.match(b)]
+    return ", ".join(parts) if parts else None
 
 
 def _parse_posted(text: str | None) -> datetime | None:
@@ -107,12 +137,17 @@ class WorkdayConnector(Connector):
 
             for p in postings:
                 path = p.get("externalPath") or ""
-                job_id = p.get("bulletFields", [None])[0] or path
+                # externalPath is unique per requisition; bulletFields is NOT.
+                # On tenants that omit locationsText the first bulletField is
+                # the location, so keying on it collapsed every posting sharing
+                # a city into one and silently discarded the rest — Thomson
+                # Reuters reported 486 jobs and yielded 32.
+                job_id = path or _bullet_req_id(p) or p.get("title")
                 if not job_id or job_id in seen:
                     continue
                 seen.add(job_id)
                 title = (p.get("title") or "").strip()
-                loc = p.get("locationsText")
+                loc = p.get("locationsText") or _bullet_location(p)
                 apply_url = f"{base}{path}" if path else base
                 raw_jobs.append(
                     RawJob(

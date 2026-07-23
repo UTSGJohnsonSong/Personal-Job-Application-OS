@@ -359,6 +359,47 @@ async def test_workday_pagination_survives_total_zero_on_later_pages():
 
 
 @pytest.mark.asyncio
+async def test_workday_tenant_without_locations_text():
+    """Some tenants omit `locationsText` and put the location in bulletFields.
+
+    Two failures came from that, both silent. Keying identity on bulletFields[0]
+    made every posting in the same city collide, so Thomson Reuters reported 486
+    jobs and yielded 32; and the location came back empty, so all 68 of its
+    Canadian roles looked like they had no location and matched no filter.
+    """
+    from app.connectors.workday import WorkdayConnector
+
+    CITIES = ["Toronto", "Toronto", "Singapore", "Toronto", "London"]
+
+    class NoLocationsText:
+        async def post_json(self, url, *, json, headers=None):
+            if json["offset"]:
+                return 200, {"jobPostings": [], "total": 0}, {}
+            return 200, {"jobPostings": [
+                {"title": f"Analyst {i}",
+                 "externalPath": f"/job/{c}/Analyst-{i}_JREQ{100 + i}",
+                 # No locationsText. Location first, requisition id last.
+                 "bulletFields": [c, "Ontario" if c == "Toronto" else "Other",
+                                  f"JREQ{100 + i}"]}
+                for i, c in enumerate(CITIES)
+            ], "total": len(CITIES)}, {}
+
+    res = await WorkdayConnector().fetch(
+        SourceConfig(connector_key="workday", external_id="acme", display_name="Acme",
+                     config={"tenant": "acme", "wd": 5, "site": "External"}),
+        NoLocationsText(),
+    )
+    # Three postings share "Toronto"; none may be dropped.
+    assert len(res.raw_jobs) == len(CITIES)
+    assert len({j.source_job_id for j in res.raw_jobs}) == len(CITIES)
+    # And the location has to survive, or the Canada filter never sees it.
+    toronto = [j for j in res.raw_jobs if j.locations
+               and "Toronto" in j.locations[0].raw_text]
+    assert len(toronto) == 3
+    assert "JREQ" not in toronto[0].locations[0].raw_text
+
+
+@pytest.mark.asyncio
 async def test_workday_respects_max_pages_cap():
     """Never crawl an entire enterprise board in one pass."""
     from app.connectors.workday import WorkdayConnector

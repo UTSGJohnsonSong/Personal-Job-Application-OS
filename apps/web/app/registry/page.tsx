@@ -90,7 +90,34 @@ function Row({ c, view }: { c: RegistryCompany; view: RegistryView }) {
             {c.safety_net && <Chip label="" value="floor" tone="mute" />}
             {c.role_floor && <Chip label="" value="role-gated" tone="warn" />}
             {c.adjusted && <Chip label="" value="adjusted" tone="warn" />}
-            {!c.has_source && <Chip label="" value="no source yet" tone="bad" />}
+            {c.source.status !== "verified" && (
+              <Chip
+                label=""
+                value={
+                  c.source.status === "manual_only"
+                    ? "apply manually"
+                    : c.source.status === "partial"
+                      ? "partial board"
+                      : "no source yet"
+                }
+                tone={
+                  c.source.status === "manual_only"
+                    ? "info"
+                    : c.source.status === "partial"
+                      ? "warn"
+                      : "bad"
+                }
+              />
+            )}
+            {c.source.observed_student_canada
+              ? <Chip
+                  label=""
+                  value={`${c.source.observed_student_canada} CA student role${
+                    c.source.observed_student_canada > 1 ? "s" : ""
+                  } open`}
+                  tone="good"
+                />
+              : null}
           </div>
           <p className="text-[11px] text-gray-500 mt-1 line-clamp-2">{c.why}</p>
           {showAction && (
@@ -231,8 +258,9 @@ export default async function RegistryPage({
               Worth forcing →
             </Link>
             <span className="text-gray-700">
-              {meta.source_coverage.without_source} of {meta.total_rated} have no
-              source yet
+              sources: {meta.source_coverage.by_status.verified ?? 0} verified ·{" "}
+              {meta.source_coverage.by_status.manual_only ?? 0} manual ·{" "}
+              {meta.source_coverage.without_source} still unmapped
             </span>
           </div>
 

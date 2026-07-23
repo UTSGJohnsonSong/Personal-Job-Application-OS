@@ -124,7 +124,7 @@ async def main() -> None:
         results = await asyncio.gather(*tasks)
 
         seen: set[tuple[str, str]] = set()
-        for (employer, key, token), r in zip(meta, results):
+        for (employer, key, token), r in zip(meta, results, strict=False):
             if not r:
                 continue
             if (key, token) in seen:

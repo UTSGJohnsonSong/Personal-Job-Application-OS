@@ -152,7 +152,7 @@ async def probe(http, key, conn, external_id, config, label):
     jobs = res.raw_jobs
     locs = [(j.locations[0].raw_text if j.locations else "") or "" for j in jobs]
     students = [j for j in jobs if STUDENT.search(j.title)]
-    student_ca = [j for j, x in zip(jobs, locs)
+    student_ca = [j for j, x in zip(jobs, locs, strict=False)
                   if STUDENT.search(j.title) and CANADA.search(x)]
     return {
         "employer": label, "connector": key, "external_id": external_id,
@@ -212,7 +212,7 @@ async def main() -> None:
         results = await asyncio.gather(*tasks)
 
     seen: set[tuple[str, str]] = set()
-    for (key, tok), r in zip(meta, results):
+    for (key, tok), r in zip(meta, results, strict=False):
         if not r or (key, tok) in seen:
             continue
         seen.add((key, tok))

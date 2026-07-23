@@ -95,7 +95,7 @@ async def analyse(http, row) -> dict | None:
     canada = sum(1 for x in locs if CANADA.search(x))
     gta = sum(1 for x in locs if GTA.search(x))
     students = [j for j in jobs if STUDENT.search(j.title)]
-    students_ca = [j for j, x in zip(jobs, locs)
+    students_ca = [j for j, x in zip(jobs, locs, strict=False)
                    if STUDENT.search(j.title) and CANADA.search(x)]
     tech = sum(1 for j in jobs if TECH.search(j.title))
     depts = {(j.department or "").strip().lower() for j in jobs if j.department}
