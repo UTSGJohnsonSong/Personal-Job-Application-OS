@@ -5,6 +5,7 @@ from app.connectors.base import Connector
 from app.connectors.generic import GenericAtsConnector
 from app.connectors.greenhouse import GreenhouseConnector
 from app.connectors.lever import LeverConnector
+from app.connectors.workday import WorkdayConnector
 
 # Adding a new source = implement Connector + register here. No core changes.
 _REGISTRY: dict[str, Connector] = {
@@ -14,6 +15,7 @@ _REGISTRY: dict[str, Connector] = {
         LeverConnector(),
         AshbyConnector(),
         GenericAtsConnector(),
+        WorkdayConnector(),
     )
 }
 

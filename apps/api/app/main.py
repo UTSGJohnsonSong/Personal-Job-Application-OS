@@ -13,6 +13,7 @@ from app.api.routes import (
     health,
     jobs,
     manual,
+    personal,
     queue,
     records,
     scoring,
@@ -64,6 +65,7 @@ app.include_router(records.router)
 app.include_router(ammo.router)
 app.include_router(scoring.router)
 app.include_router(manual.router)
+app.include_router(personal.router)
 
 
 @app.get("/")

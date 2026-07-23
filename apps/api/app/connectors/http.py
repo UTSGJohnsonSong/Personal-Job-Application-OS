@@ -30,6 +30,29 @@ class HttpClient:
         if self._client:
             await self._client.aclose()
 
+    async def post_json(
+        self, url: str, *, json: dict, headers: dict | None = None
+    ) -> tuple[int, dict | list, dict]:
+        """POST for boards whose public search endpoint requires it (Workday)."""
+        assert self._client is not None, "use inside 'async with HttpClient()'"
+        merged = {"Accept": "application/json", **(headers or {})}
+        for attempt in range(self._max_retries):
+            try:
+                resp = await self._client.post(url, json=json, headers=merged)
+                if resp.status_code == 429:
+                    await asyncio.sleep(2**attempt)
+                    continue
+                if resp.status_code >= 500:
+                    raise ConnectorError(f"{url} -> {resp.status_code}", retryable=True)
+                if resp.status_code >= 400:
+                    raise ConnectorError(f"{url} -> {resp.status_code}", retryable=False)
+                return resp.status_code, resp.json(), dict(resp.headers)
+            except (httpx.TimeoutException, httpx.TransportError) as exc:
+                if attempt == self._max_retries - 1:
+                    raise ConnectorError(f"POST {url} failed: {exc}", retryable=True) from exc
+                await asyncio.sleep(min(2**attempt, 8))
+        raise ConnectorError(f"POST {url} exhausted retries", retryable=True)
+
     async def get_json(
         self, url: str, *, headers: dict | None = None
     ) -> tuple[int, dict | list, dict]:

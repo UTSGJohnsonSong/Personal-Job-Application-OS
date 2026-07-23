@@ -20,6 +20,17 @@ dist/
 .turbo/
 *.tsbuildinfo
 
+# ------------------------------------------------------------------
+# PERSONAL DATA — never commit. This repository is public.
+# Resumes, transcripts, offer letters and anything else identifying the
+# owner stay local only.
+# ------------------------------------------------------------------
+information/
+personal_data/
+*.pdf
+*.docx
+!docs/**/*.pdf
+
 # Env / secrets
 .env
 .env.*

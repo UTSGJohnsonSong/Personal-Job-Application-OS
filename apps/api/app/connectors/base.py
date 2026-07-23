@@ -22,6 +22,12 @@ class HttpLike(Protocol):
         self, url: str, *, headers: dict | None = None
     ) -> tuple[int, dict | list, dict]: ...
 
+    async def post_json(
+        self, url: str, *, json: dict, headers: dict | None = None
+    ) -> tuple[int, dict | list, dict]:
+        """Required by boards whose public search endpoint is POST (Workday)."""
+        ...
+
 
 @runtime_checkable
 class Connector(Protocol):

@@ -89,6 +89,11 @@ export default async function LoginPage({
         {sp.error === "config" && (
           <p className="text-xs text-red-400">Login is not configured on the server.</p>
         )}
+        {sp.error === "session" && (
+          <p className="text-xs text-amber-400">
+            Session expired or could not be verified. Please sign in again.
+          </p>
+        )}
 
         <button
           disabled={!configured}

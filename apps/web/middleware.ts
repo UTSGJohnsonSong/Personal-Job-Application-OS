@@ -4,30 +4,43 @@ import type { NextRequest } from "next/server";
 import { SESSION_COOKIE, verifySession } from "@/lib/session";
 
 /**
- * Gates the ENTIRE app behind a login.
+ * First line of the login gate.
  *
- * Without this, the site holds the API token server-side and would happily
- * render the owner's personal data to any visitor who knows the URL.
+ * The AUTHORITATIVE check lives in the root layout, which runs in the Node
+ * runtime and therefore always sees APP_SECRET_KEY. This middleware is a cheap
+ * pre-filter: it bounces requests that carry no cookie at all, and passes the
+ * pathname along so the layout knows whether to enforce.
  *
- * The middleware only needs APP_SECRET_KEY (to verify the session cookie).
- * The password check lives in the login server action, which runs in the Node
- * runtime — so this file never depends on APP_PASSWORD being visible to the
- * Edge runtime. It still fails closed: with no secret, no cookie can ever
- * verify, so every request is sent to /login.
+ * It never *grants* access on its own — a forged cookie still fails the Node
+ * verification in the layout.
  */
 export async function middleware(request: NextRequest) {
-  if (request.nextUrl.pathname === "/login") return NextResponse.next();
+  const { pathname } = request.nextUrl;
 
+  const headers = new Headers(request.headers);
+  headers.set("x-pathname", pathname);
+
+  if (pathname === "/login") {
+    return NextResponse.next({ request: { headers } });
+  }
+
+  const cookie = request.cookies.get(SESSION_COOKIE)?.value;
+  if (!cookie) {
+    const url = new URL("/login", request.url);
+    url.searchParams.set("next", pathname);
+    return NextResponse.redirect(url);
+  }
+
+  // If the Edge runtime can see the secret we can reject bad cookies early;
+  // if it cannot, we defer to the Node-side check rather than guessing.
   const secret = process.env.APP_SECRET_KEY ?? "";
-  const ok = secret
-    ? await verifySession(request.cookies.get(SESSION_COOKIE)?.value, secret)
-    : false;
+  if (secret && !(await verifySession(cookie, secret))) {
+    const url = new URL("/login", request.url);
+    url.searchParams.set("error", "session");
+    return NextResponse.redirect(url);
+  }
 
-  if (ok) return NextResponse.next();
-
-  const url = new URL("/login", request.url);
-  url.searchParams.set("next", request.nextUrl.pathname);
-  return NextResponse.redirect(url);
+  return NextResponse.next({ request: { headers } });
 }
 
 export const config = {
