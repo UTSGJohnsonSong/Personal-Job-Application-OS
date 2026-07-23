@@ -33,6 +33,11 @@ class CandidateFacts:
     # no basis to reject a "Senior Manager, 10+ years" role, which is how such
     # roles reached a student's inbox marked eligible.
     target_seniority: set[str] = field(default_factory=set)
+    # Whether the candidate is a technical/analyst/product applicant. When true,
+    # a non-technical role (sales, support, marketing, HR, admin — the R4 band)
+    # is off-target and hard-screened, so his inbox stops filling with account
+    # executive and customer-support postings.
+    technical_candidate: bool = False
 
 
 @dataclass
@@ -170,16 +175,26 @@ _SENIORITY_ORDER = {
 # Software Engineer" and "Senior Software Engineer Intern" must not be read as
 # senior. Order matters within this list.
 _SENIORITY_MARKERS: list[tuple[re.Pattern[str], str]] = [
-    (re.compile(r"\b(intern|internship|co-?op)\b", re.I), "intern"),
+    # Intern / co-op / new-grad win over everything: "Senior SWE Intern" is an
+    # internship.
+    (re.compile(r"\b(intern|internship|co-?op|stage|stagiaire)\b", re.I), "intern"),
     (re.compile(r"\b(new\s?grad|university\s+grad|campus|early\s+career|"
                 r"graduate\s+(program|analyst|engineer)|apprentice)\b", re.I), "new_grad"),
-    (re.compile(r"\b(junior|jr\.?|entry[-\s]?level|associate)\b", re.I), "junior"),
-    (re.compile(r"\b(chief|\bC[EFTOI]O\b|president)\b", re.I), "executive"),
-    (re.compile(r"\b(vice\s+president|\bVP\b|\bSVP\b|\bEVP\b|head\s+of)\b", re.I), "vp"),
-    (re.compile(r"\b(director)\b", re.I), "director"),
+    # Senior markers are checked BEFORE "associate", so "Associate Director" and
+    # "Associate Principal" read as senior rather than being let through by the
+    # junior-sounding "associate".
+    (re.compile(r"\b(chief|C[EFTOI]O|president|président)\b", re.I), "executive"),
+    (re.compile(r"\b(vice\s+president|VP|SVP|EVP|head\s+of)\b", re.I), "vp"),
+    (re.compile(r"\b(director|directeur|directrice)\b", re.I), "director"),
     (re.compile(r"\b(principal|staff|distinguished|architect)\b", re.I), "principal"),
-    (re.compile(r"\b(manager|mgr\.?|team\s+lead|tech\s+lead)\b", re.I), "manager"),
-    (re.compile(r"\b(senior|sr\.?|lead)\b", re.I), "senior"),
+    (re.compile(r"\b(manager|mgr\.?|team\s+lead|tech\s+lead|gestionnaire|"
+                r"gestion\w*)\b", re.I), "manager"),
+    # Numeric / roman levels: III and up are past entry for a co-op student.
+    (re.compile(r"\b(III|IV|V|3|4|5)\b\s*$", re.I), "senior"),
+    (re.compile(r"\b(senior|sr\.?|lead|senior|lll)\b", re.I), "senior"),
+    # Only now the junior-sounding markers, so they never mask a senior prefix.
+    (re.compile(r"\b(junior|jr\.?|entry[-\s]?level|associate|assoc\.?)\b", re.I),
+     "junior"),
 ]
 
 
@@ -196,7 +211,16 @@ def detect_seniority(title: str | None, years_required: float | None = None) -> 
     — which the gate treats as unknown rather than guessing junior or senior.
     """
     text = title or ""
+    # In "Product / Project / Program Manager" and "Product Owner", "manager" is
+    # the role noun, not a seniority level — an Associate Product Manager is
+    # entry-level, a target, not a people-manager. So the generic manager level
+    # is skipped for these, and the level comes from the other markers.
+    ic_manager = re.search(
+        r"\b(product|project|program|product\s+marketing|community|"
+        r"social\s+media)\s+manager\b", text, re.I)
     for pattern, level in _SENIORITY_MARKERS:
+        if level == "manager" and ic_manager:
+            continue
         if pattern.search(text):
             return level
     return None
@@ -252,11 +276,50 @@ def _check_experience(jd: ParsedJD, facts: CandidateFacts) -> CheckOutcome | Non
         f"requires {required:g} years — a stretch, worth a human check")
 
 
+# Role types that are non-technical whatever the band. The classifier promotes
+# a title's band when the JD body carries technical words — a "Content Writer"
+# JD mentioning "CMS" and "workflow" lands at R3 — but it keeps the type, so the
+# type is the reliable off-target signal, not the band.
+_NONTECHNICAL_ROLE_TYPES = frozenset({
+    "sales", "customer_support", "hr", "general_marketing",
+    "nontechnical_operations", "administrative",
+    "nontechnical_business_development",
+})
+
+
+def _check_role_fit(
+    role_band: str | None, role_type: str | None, facts: CandidateFacts
+) -> CheckOutcome | None:
+    """Is this the kind of work the candidate is actually seeking?
+
+    Hard, but only for a declared technical candidate. His targets are all
+    technical, analyst or product roles, so a non-technical role — sales,
+    customer support, HR, marketing, admin — is off-target and screened out.
+    Gated on role TYPE rather than band, because the JD body can promote a
+    non-technical title's band while the type stays correct.
+
+    An unrecognised title (type "unknown") is left to pass and sorts low on
+    relevance rather than being rejected — the engine does not guess that a
+    title it cannot read is off-target.
+    """
+    if not facts.technical_candidate or role_type is None:
+        return None
+    if role_type in _NONTECHNICAL_ROLE_TYPES:
+        return CheckOutcome(
+            "role_fit", "fail", True, role_type,
+            "targets technical / analyst / product roles",
+            f"role is non-technical ({role_type})")
+    return CheckOutcome("role_fit", "pass", True, role_type,
+                        "technical / analyst / product role")
+
+
 def evaluate(
     jd: ParsedJD,
     facts: CandidateFacts,
     location: str | None = None,
     seniority: str | None = None,
+    role_band: str | None = None,
+    role_type: str | None = None,
 ) -> EligibilityReport:
     """Deterministic aggregation. See docs/ELIGIBILITY_ENGINE.md."""
     checks = [
@@ -268,6 +331,7 @@ def evaluate(
             _check_location(location, facts),
             _check_seniority(seniority, facts),
             _check_experience(jd, facts),
+            _check_role_fit(role_band, role_type, facts),
         )
         if c is not None
     ]

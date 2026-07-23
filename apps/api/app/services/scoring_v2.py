@@ -128,10 +128,14 @@ async def score_job(
     # it is detected here and passed in. This is what keeps a "Senior Manager,
     # 10+ years" role out of a co-op student's eligible set.
     seniority = detect_seniority(job.title, jd.years_experience)
-    gate = evaluate_gate(evaluate(jd, facts, location=location, seniority=seniority))
-
     company = assess_company(await _company_evidence(session, job.company_id))
+    # Role family is a hard screen for a technical candidate: a non-technical
+    # posting (sales, support, marketing) is off-target and gated out here
+    # rather than ranked. Classified before the gate so its band can feed it.
     role = classify_role(job.title, description)
+    gate = evaluate_gate(evaluate(
+        jd, facts, location=location, seniority=seniority,
+        role_band=role.band.value, role_type=role.role_type))
 
     jd_skills = [JDSkill(skill=s, required=True) for s in extract_skills(description)]
     fit = compute_fit(jd_skills, await _candidate_skills(session, user_id))

@@ -203,6 +203,8 @@ async def main() -> None:
                 # He is targeting early-career roles; anything mid-level or above
                 # is out of reach this cycle.
                 "target_seniority": ["intern", "co_op", "new_grad", "entry"],
+                # He is a CS/DS applicant; non-technical roles are off-target.
+                "technical_candidate": True,
                 "coop_window": "2026-09 to 2027-04 (8-month), open 4-12 months",
             })
         _prov(pref, ProvenanceSource.USER_CONFIRMED,

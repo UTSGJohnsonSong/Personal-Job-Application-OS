@@ -86,6 +86,7 @@ async def build_candidate_facts(session: AsyncSession, user_id: str) -> Candidat
         ye = wo.get("years_experience")
         if ye is not None:
             facts.years_experience = float(ye)
+        facts.technical_candidate = bool(wo.get("technical_candidate", False))
 
     return facts
 

@@ -102,6 +102,84 @@ def test_plain_title_is_not_rejected_on_seniority_alone() -> None:
     assert _gate("Data Analyst, Business Intelligence") is Gate.PASS
 
 
+@pytest.mark.parametrize("title,expected", [
+    # "Manager" in a product/project title is a role noun, not a level.
+    ("Associate Product Manager", "junior"),
+    ("Product Manager", None),
+    ("Senior Product Manager", "senior"),
+    ("Technical Product Manager", None),
+    ("Product Owner", None),
+    ("Engineering Manager", "manager"),
+    ("Manager, Software Development", "manager"),
+    # A senior prefix must beat the junior-sounding "Associate".
+    ("Associate Director, HRBP", "director"),
+    ("Associate Principal Architect", "principal"),
+    ("Associate Software Engineer", "junior"),
+    # Numeric levels: III and up are past entry.
+    ("Data Engineer III", "senior"),
+    ("Software Engineer II", None),
+    # French management titles.
+    ("Gestionnaire, Stratégie", "manager"),
+])
+def test_seniority_edge_cases(title: str, expected: str | None) -> None:
+    assert detect_seniority(title) == expected
+
+
+def test_apm_a_named_target_is_not_screened_as_a_manager() -> None:
+    """Associate Product Manager is entry-level product — one of his targets."""
+    assert _gate("Associate Product Manager") is Gate.PASS
+
+
+# --------------------------------------------------------------------------
+# Role-family fit: non-technical roles are off-target for a technical candidate
+# --------------------------------------------------------------------------
+def _tech_student() -> CandidateFacts:
+    facts = _coop_student()
+    facts.technical_candidate = True
+    return facts
+
+
+def _fit_gate(title: str, description: str = "") -> Gate:
+    from app.roles.taxonomy import classify_role
+
+    jd = parse_jd(description)
+    role = classify_role(title, description)
+    return evaluate_gate(evaluate(
+        jd, _tech_student(), location="Toronto, ON",
+        seniority=detect_seniority(title, jd.years_experience),
+        role_band=role.band.value, role_type=role.role_type,
+    )).gate
+
+
+@pytest.mark.parametrize("title", [
+    "Account Executive", "Customer Support Specialist",
+    "Client Success Coordinator", "Events Specialist, Tradeshows",
+    "Content Writer", "Communications Manager",
+    "Associate Director, HRBP", "Recruiter", "Executive Assistant",
+])
+def test_non_technical_roles_are_screened_out(title: str) -> None:
+    assert _fit_gate(title) is Gate.FAIL
+
+
+@pytest.mark.parametrize("title", [
+    "Software Engineer Intern", "Data Analyst Co-op",
+    "Machine Learning Intern", "Backend Developer, New Grad",
+    "Associate Product Manager", "Data Engineer",
+])
+def test_technical_and_product_roles_pass_the_fit_gate(title: str) -> None:
+    assert _fit_gate(title) is Gate.PASS
+
+
+def test_role_fit_does_not_fire_without_a_technical_candidate() -> None:
+    """The screen is opt-in; a non-technical candidate keeps sales roles."""
+    from app.roles.taxonomy import classify_role
+
+    role = classify_role("Account Executive", "")
+    report = evaluate(parse_jd(""), _coop_student(), location="Toronto",
+                      role_band=role.band.value, role_type=role.role_type)
+    assert report.verdict is not Verdict.INELIGIBLE
+
+
 # --------------------------------------------------------------------------
 # Experience gate independent of title
 # --------------------------------------------------------------------------
