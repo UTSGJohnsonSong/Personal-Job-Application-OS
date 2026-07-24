@@ -634,24 +634,26 @@ _FINANCE: list[CompanyProfile] = [
       prog=3,
       why="Large Toronto data and analytics organisation running Fall co-op "
           "cohorts; named in his safety-net tier.",
-      boards=(("workday", "bmo"),), role_floor=True, tags=("bank", "toronto")),
+      boards=(("workday", "bmo"),), role_floor=True, safety_net=True,
+      tags=("bank", "toronto")),
     C("cibc", "CIBC", ca=3, us=1, cn=1, depth=3, role=3, domain=2, founder=1,
       prog=3,
       why="The largest Canadian-posting employer seen in the board sweep; "
           "student hiring is strongly seasonal with a September window.",
-      boards=(("workday", "cibc"),), role_floor=True, tags=("bank", "toronto")),
+      boards=(("workday", "cibc"),), role_floor=True, safety_net=True,
+      tags=("bank", "toronto")),
     C("manulife", "Manulife", ca=3, us=1, cn=3, depth=3, role=3, domain=2,
       founder=1, prog=3,
       why="Large Toronto data and AI organisation currently running an AI "
           "Enablement co-op. Its China business is major, so the name carries "
           "real weight if he ever moves back.",
-      boards=(("workday", "manulife"),), role_floor=True,
+      boards=(("workday", "manulife"),), role_floor=True, safety_net=True,
       aliases=("宏利",), tags=("insurer", "toronto", "china")),
     C("sunlife", "Sun Life", ca=3, us=1, cn=3, depth=3, role=3, domain=2,
       founder=1, prog=3,
       why="Substantial Toronto technology and data organisation, named in his "
           "safety tier, and a strong brand in China.",
-      boards=(("workday", "sunlife"),), role_floor=True,
+      boards=(("workday", "sunlife"),), role_floor=True, safety_net=True,
       aliases=("永明",), tags=("insurer", "toronto", "china")),
     C("cppinvestments", "CPP Investments", ca=2, us=1, cn=1, depth=2, role=3,
       domain=3, founder=1, prog=3,
@@ -804,7 +806,7 @@ _SAAS: list[CompanyProfile] = [
       why="Large Waterloo enterprise-software employer with a big, predictable "
           "co-op intake, though the work is rarely distinctive.",
       tags=("saas", "canada")),
-    C("faire", "Faire", ca=1, us=2, cn=0, depth=2, role=2, domain=3, founder=2,
+    C("faire", "Faire", ca=1, us=2, cn=0, depth=2, role=2, domain=1, founder=2,
       prog=2, tech=2,
       why="Wholesale marketplace with a substantial Toronto engineering office "
           "and strong data work on a competitive bar.",
@@ -891,32 +893,32 @@ _GLOBAL: list[CompanyProfile] = [
           "Strong brand, but the work is firmware and silicon rather than "
           "anything on his analyst or product path.",
       tags=("hardware", "toronto")),
-    C("uber", "Uber", ca=2, us=3, cn=2, depth=2, role=2, domain=3, founder=2,
+    C("uber", "Uber", ca=2, us=3, cn=2, depth=2, role=2, domain=1, founder=2,
       prog=3, tech=3,
       why="Large-scale marketplace data work with a real Toronto engineering "
           "site and a structured internship.",
       tags=("bigtech", "toronto")),
-    C("instacart", "Instacart", ca=1, us=2, cn=0, depth=2, role=3, domain=3,
+    C("instacart", "Instacart", ca=1, us=2, cn=0, depth=2, role=3, domain=1,
       founder=2, prog=2, tech=2,
       why="Toronto data and analytics roles on a marketplace with genuinely "
           "interesting demand modelling.",
       boards=(("greenhouse", "instacart"),), tags=("toronto", "data")),
-    C("databricks", "Databricks", ca=1, us=3, cn=2, depth=1, role=2, domain=3,
+    C("databricks", "Databricks", ca=1, us=3, cn=2, depth=1, role=2, domain=2,
       founder=2, prog=3, tech=3,
       why="Leading data and AI platform, directly relevant to a data-engineering "
           "trajectory, though Canadian hiring is limited.",
       boards=(("greenhouse", "databricks"),), tags=("data",)),
-    C("snowflake", "Snowflake", ca=1, us=3, cn=1, depth=1, role=2, domain=3,
+    C("snowflake", "Snowflake", ca=1, us=3, cn=1, depth=1, role=2, domain=2,
       founder=2, prog=3, tech=3,
       why="Major data platform and a strong signal for data work, though its "
           "Canadian presence is thin.",
       boards=(("ashby", "snowflake"),), tags=("data",)),
-    C("mongodb", "MongoDB", ca=1, us=2, cn=1, depth=2, role=2, domain=3,
+    C("mongodb", "MongoDB", ca=1, us=2, cn=1, depth=2, role=2, domain=2,
       founder=1, prog=3, tech=3,
       why="Database platform with a real Canadian presence and a published "
           "internship programme.",
       boards=(("greenhouse", "mongodb"),), tags=("data",)),
-    C("datadog", "Datadog", ca=1, us=2, cn=0, depth=2, role=2, domain=3,
+    C("datadog", "Datadog", ca=1, us=2, cn=0, depth=2, role=2, domain=2,
       founder=1, prog=3, tech=3,
       why="Large-scale observability platform with serious distributed-systems "
           "work and a growing Canadian office.",
@@ -936,7 +938,7 @@ _GLOBAL: list[CompanyProfile] = [
       why="Strong product brand with real recognition in China; a small team "
           "and little Canadian hiring.",
       boards=(("ashby", "notion"),), tags=("product",)),
-    C("duolingo", "Duolingo", ca=2, us=3, cn=2, depth=1, role=2, domain=3,
+    C("duolingo", "Duolingo", ca=2, us=3, cn=2, depth=1, role=2, domain=1,
       founder=2, prog=3, tech=3,
       why="Genuine applied-ML product work behind a consumer surface, and a "
           "famously competitive, well-published internship.",
@@ -1194,7 +1196,7 @@ _CANADA_TECH: list[CompanyProfile] = [
       why="Toronto edtech with local product and data roles at an accessible "
           "hiring bar.",
       tags=("saas", "toronto")),
-    C("wattpad", "Wattpad", ca=2, us=1, cn=1, depth=2, role=3, domain=3,
+    C("wattpad", "Wattpad", ca=2, us=1, cn=1, depth=2, role=3, domain=1,
       founder=2, prog=2, tech=2,
       why="Toronto consumer platform with a genuinely interesting "
           "recommendation and content-analytics problem at real scale.",
@@ -1432,12 +1434,12 @@ _INVESTMENT: list[CompanyProfile] = [
 # More global technology employers with genuine Canadian data/AI/SWE hiring.
 # =========================================================================
 _GLOBAL_TECH_2: list[CompanyProfile] = [
-    C("spotify", "Spotify", ca=2, us=3, cn=2, depth=2, role=2, domain=3,
+    C("spotify", "Spotify", ca=2, us=3, cn=2, depth=2, role=2, domain=1,
       founder=2, prog=3, tech=3,
       why="Large consumer-ML and data brand with a real Toronto engineering "
           "presence and a competitive, published internship.",
       tags=("bigtech", "toronto", "data")),
-    C("tiktok", "TikTok", ca=2, us=3, cn=3, depth=2, role=2, domain=3,
+    C("tiktok", "TikTok", ca=2, us=3, cn=3, depth=2, role=2, domain=1,
       founder=1, prog=3, tech=3,
       why="ByteDance's recommendation platform with a Toronto office and heavy "
           "applied-ML and data work; a top brand in China, where he may return.",
@@ -1481,17 +1483,17 @@ _GLOBAL_TECH_2: list[CompanyProfile] = [
       founder=1, prog=2, tech=2,
       why="Communications-API platform with Canadian remote engineering roles.",
       aliases=("Twilio",), tags=("saas", "canada")),
-    C("doordash", "DoorDash", ca=2, us=3, cn=0, depth=2, role=3, domain=3,
+    C("doordash", "DoorDash", ca=2, us=3, cn=0, depth=2, role=3, domain=1,
       founder=2, prog=3, tech=2,
       why="Large marketplace with a Toronto office and genuinely interesting "
           "logistics and demand data work.",
       tags=("bigtech", "toronto", "data")),
-    C("wayfair", "Wayfair", ca=1, us=2, cn=0, depth=2, role=3, domain=3,
+    C("wayfair", "Wayfair", ca=1, us=2, cn=0, depth=2, role=3, domain=1,
       founder=1, prog=3, tech=2,
       why="E-commerce company with a real Toronto data-science and engineering "
           "centre and a structured co-op.",
       tags=("commerce", "toronto", "data")),
-    C("pinterest", "Pinterest", ca=1, us=2, cn=0, depth=1, role=2, domain=3,
+    C("pinterest", "Pinterest", ca=1, us=2, cn=0, depth=1, role=2, domain=1,
       founder=1, prog=3, tech=2,
       why="Large consumer-ML and data platform with a Toronto presence.",
       tags=("bigtech", "toronto", "data")),
@@ -1621,7 +1623,7 @@ _GAMING: list[CompanyProfile] = [
       role=2, domain=2, founder=1, prog=2, tech=2,
       why="Montreal AAA studio with engineering and tools roles.",
       tags=("gaming", "canada")),
-    C("kabam", "Kabam", ca=1, us=1, cn=1, depth=2, role=2, domain=3, founder=1,
+    C("kabam", "Kabam", ca=1, us=1, cn=1, depth=2, role=2, domain=1, founder=1,
       prog=2, tech=2,
       why="Vancouver mobile-games studio with genuine data-science and "
           "live-analytics work.",
