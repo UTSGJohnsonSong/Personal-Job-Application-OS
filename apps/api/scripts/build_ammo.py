@@ -219,10 +219,12 @@ BLOCKS: list[tuple[str, str, str, list[str], str | None, bool, str | None, str]]
      r"\href{mailto:zekun.song@mail.utoronto.ca}"
      r"{\underline{zekun.song@mail.utoronto.ca}} $|$ "
      r"\href{https://linkedin.com/in/zekun-song}"
-     r"{\underline{linkedin.com/in/zekun-song}}",
+     r"{\underline{linkedin.com/in/zekun-song}} $|$ "
+     r"\href{https://github.com/UTSGJohnsonSong}"
+     r"{\underline{github.com/UTSGJohnsonSong}}",
      ["header"], None, False,
-     "待办：LinkedIn 链接验证；GitHub 建好后插入第四项",
-     "弹药库/06_Education_头部模块.md 页头"),
+     "2026-07-23：GitHub 已建好，加入第四项。待办：LinkedIn 链接验证",
+     "弹药库/06_Education_头部模块.md 页头，GitHub 项 2026-07-23 用户确认补入"),
     ("other", "Education — DE order",
      r"\textbf{University of Toronto (St. George)}\hfill Toronto, ON, "
      r"Canada, Sep. 2023 -- Dec. 2027 (Expected)\\"
