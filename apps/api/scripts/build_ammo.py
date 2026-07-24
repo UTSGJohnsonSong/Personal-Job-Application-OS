@@ -255,6 +255,30 @@ BLOCKS: list[tuple[str, str, str, list[str], str | None, bool, str | None, str]]
      ["education", "data-analyst"], "data-analyst", True,
      "统计前置的课程顺序，其余同 DE 版",
      "弹药库/06_Education_头部模块.md Education 区，DA 版课程顺序（统计前置）"),
+    ("other", "Honours & Awards",
+     r"\item Honours \& Awards: Reuben Wells Leonard Scholarship, 2023",
+     ["education", "honors"], None, False,
+     "2026-07-23 从 v1_medical 旧简历版本核实到具体名称并经用户确认为真——此前 "
+     "弹药库该行长期空着（'名称待确认'）。金额未知，简历上不写金额。",
+     "旧简历 D:/A. Workspace/Me/简历/v1_medical/Zekun_Resume_Medical.pdf，"
+     "2026-07-23 用户确认属实"),
+    # --- 2026-07-23: user-confirmed additions from a cross-check against
+    # older resume drafts (D:\A. Workspace\Me\简历). Most of that archive's
+    # content was NOT imported — it predates the 2026-07-15/18 fact-check
+    # that produced the rest of this file (invented percentages with no
+    # anchor, an AWS EC2/Lambda claim the user's own skill audit says is
+    # false, and three different employer names for the same one-month
+    # experience). These three tools were the exception: explicitly
+    # confirmed by the user as real, just never written into 05_Skills_组合.
+    ("skill_combo", "Additional Skills — 2026-07-23 补充（旧简历交叉核实）",
+     r"\item \textbf{Additional:} Streamlit, TensorFlow, Kubernetes",
+     ["skills", "additional"], None, False,
+     "用户 2026-07-23 确认这三项真实掌握，但 05_Skills_组合.md 的两套主力组合"
+     "没收录（原始技能审计做在这三项被提及之前）。使用前建议想清楚能不能讲到"
+     "具体项目/场景——弹药库的铁律是'每条 bullet 必须能讲三层，讲不到的不入库'"
+     "同样适用于技能行。",
+     "旧简历 D:/A. Workspace/Me/简历/ 多个版本（PM/SW/DS/设计），"
+     "2026-07-23 用户确认属实（同批次的 Redis 未被确认，未收录）"),
 ]
 
 
