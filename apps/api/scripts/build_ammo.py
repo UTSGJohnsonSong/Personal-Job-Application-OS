@@ -279,6 +279,81 @@ BLOCKS: list[tuple[str, str, str, list[str], str | None, bool, str | None, str]]
      "同样适用于技能行。",
      "旧简历 D:/A. Workspace/Me/简历/ 多个版本（PM/SW/DS/设计），"
      "2026-07-23 用户确认属实（同批次的 Redis 未被确认，未收录）"),
+    # --- Interview stories (STAR format), pulled from the Remeda internship
+    # Obsidian notes (weekly reports / PR postmortems / 1-on-1 prep) —
+    # category="story" had zero entries before this. Teammates' real names
+    # replaced with generic roles; technical substance kept intact.
+    ("story", "The Silent Cache Bug",
+     "**Situation**: I shipped a PR adding seven new medical coding fields "
+     "to a lookup table, updating the write path (INSERT/UPSERT) to "
+     "populate them.\n"
+     "**Task**: A reviewer flagged that the *cache-read* path still "
+     "returned the old 5-field shape, so a cache hit silently returned "
+     "None for the new fields instead of erroring.\n"
+     "**Action**: I fixed that path, then asked myself 'who else reads "
+     "this table?' and grepped for every SELECT against it — found a "
+     "second, unrelated read path (a patient-history query feeding the "
+     "diagnostic engine) with the exact same bug that nobody had flagged "
+     "yet. Fixed both, replied to the reviewer with the second fix "
+     "included.\n"
+     "**Result**: Turned a single-comment fix into a systematic check "
+     "(DDL → write paths → all read paths → downstream consumers) that I "
+     "now apply to every schema change. The bug itself was dangerous "
+     "specifically because it never threw an error — it only showed up "
+     "on a cache hit, so a fresh local database in testing would never "
+     "catch it.",
+     ["story", "remeda", "debugging", "code-review"], None, True,
+     "追问准备：为什么这个 bug 不报错？（dict(row) 只返回 SELECT 里有的列，"
+     "不会因缺列抛异常）；为什么本地测试测不出来？（本地是全新数据库，第一次查"
+     "全部走非缓存路径，只有生产环境缓存积累后才会命中）。不要在外部场合提具体"
+     "公司名之外的队友真名。",
+     "Obsidian 03 事业/02 Remeda 实习/03 周报与复盘/21 - 复盘 SELECT 遗漏 Bug"),
+    ("story", "Cutting My Own Feature for Correctness",
+     "**Situation**: I had built support for deriving a specific clinical "
+     "classification code (DRG) from diagnosis data as part of a larger "
+     "medical-coding feature set.\n"
+     "**Task**: Before shipping, I stress-tested my own assumption instead "
+     "of just demoing it.\n"
+     "**Action**: I proved to myself that the code mathematically can't be "
+     "derived from a single diagnosis alone — it depends on secondary "
+     "diagnoses, procedures, and discharge status, none of which the "
+     "pipeline carried at the time. So I cut that piece out of my own PR, "
+     "kept only the coarser classification the input could honestly "
+     "support, and opened a separate roadmap issue describing what real "
+     "data the full feature would need.\n"
+     "**Result**: Shipped less than I'd originally planned, but nothing "
+     "that could quietly produce a wrong clinical classification. I'd "
+     "rather ship a smaller feature that's correct than a complete one "
+     "that's wrong, especially on clinical data.",
+     ["story", "remeda", "judgment", "clinical-data"], None, False,
+     "这是 1on1 演讲稿里明确点名'最骄傲的三个判断'之一。追问准备：怎么证明"
+     "'数学上不成立'？（DRG 分组器官方定义需要 secondary diagnosis/procedure/"
+     "discharge status 三类输入，管线当时只有 primary diagnosis 一类）。",
+     "Obsidian 03 事业/02 Remeda 实习/03 周报与复盘/37 - 1on1 演讲稿，Slide 5"),
+    ("story", "Finding and Fixing a Systemic Infra Trap",
+     "**Situation**: While reviewing a teammate's pull request, I noticed "
+     "their new database table never actually got created — and traced it "
+     "to a shared init-scripts folder that was only ever wired up to one "
+     "of the two databases in the stack, so anyone who put the other "
+     "database's table definitions there silently got nothing.\n"
+     "**Task**: Three separate PRs — including one of my own, earlier — "
+     "had fallen into this same trap within a month.\n"
+     "**Action**: I did three things instead of just flagging it: fixed "
+     "the immediate case so the tables self-create idempotently at "
+     "startup, verified the fix end-to-end against a real instance of the "
+     "database (not mocks), and then proposed a small, dependency-free "
+     "migration runner as the permanent structural fix, opening an issue "
+     "with a scoped design rather than just a bug report.\n"
+     "**Result**: The immediate instance was fixed, the recurring pattern "
+     "had a real fix in flight, and I made a point of naming that one of "
+     "the three affected PRs was my own — the goal was closing the gap, "
+     "not assigning blame.",
+     ["story", "remeda", "infrastructure", "code-review"], None, False,
+     "跟'The Silent Cache Bug'是同一种模式（review 时不只是指出问题，主动查"
+     "有没有同类问题）——面试如果两个都被问到，可以点出这是自己养成的习惯，"
+     "不是巧合。",
+     "Obsidian 03 事业/02 Remeda 实习/03 周报与复盘/37 - 1on1 演讲稿，Slide 6；"
+     "35 - init-scripts 建表陷阱与迁移管道提案"),
 ]
 
 
