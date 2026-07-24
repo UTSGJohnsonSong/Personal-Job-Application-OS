@@ -234,6 +234,7 @@ def _check_seniority(
     A hard check: a co-op student cannot hold a Senior Manager or Director role
     however much he might want to, so it belongs with work authorisation and
     degree, not with the soft preference signals.
+
     """
     if not facts.target_seniority or seniority is None:
         return None
@@ -283,7 +284,7 @@ def _check_experience(jd: ParsedJD, facts: CandidateFacts) -> CheckOutcome | Non
 _NONTECHNICAL_ROLE_TYPES = frozenset({
     "sales", "customer_support", "hr", "general_marketing",
     "nontechnical_operations", "administrative",
-    "nontechnical_business_development",
+    "nontechnical_business_development", "nontechnical_finance_ops",
 })
 
 

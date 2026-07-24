@@ -58,6 +58,7 @@ ROLE_TYPES: dict[str, RoleBand] = {
     "nontechnical_operations": RoleBand.R4,
     "administrative": RoleBand.R4,
     "nontechnical_business_development": RoleBand.R4,
+    "nontechnical_finance_ops": RoleBand.R4,
 }
 
 # Negative title signals evaluated BEFORE anything else. These win over the
@@ -88,18 +89,39 @@ _NEGATIVE_TITLE: list[tuple[str, str]] = [
     (r"\badministrative\b|\badmin\s+assistant\b", "administrative"),
     (r"\bexecutive\s+assistant\b", "administrative"),
     (r"\boffice\s+(manager|coordinator|administrator)\b", "administrative"),
-    (r"\bclient\s+success\b", "customer_support"),
+    (r"\bclient\s+success\b|\bsucc[eè]s\s+client\b", "customer_support"),
+    (r"\bpayments?\s+(specialist|analyst)\b|\breceivables\b",
+     "nontechnical_finance_ops"),
     (r"\b(client|customer)\s+experience\b", "customer_support"),
     (r"\brelationship\s+manager\b", "sales"),
     (r"\brecouvrement\b|\bcollections?\s+(agent|specialist)\b", "nontechnical_operations"),
     (r"\bagent(e)?\b", "customer_support"),
-    (r"\blegal\s+counsel\b|\bparalegal\b", "administrative"),
+    (r"\blegal\s+counsel\b|\bparalegal\b|\b(general\s+)?counsel\b|\battorney\b",
+     "administrative"),
     (r"\baccountant\b|\bbookkeep|\baccounting\s+(operations|clerk|analyst)\b",
      "administrative"),
     (r"\bcomptable|\bcomptabilit", "administrative"),  # French: accounting
     (r"\bapprovisionnement\b|\bprocurement\b", "nontechnical_operations"),
     (r"\bvente(s)?\b", "sales"),  # French: sales
     (r"\bfacilities\b|\breceptionist\b", "administrative"),
+    # Retail/banking-branch operations and consumer-finance roles: real jobs,
+    # just not technical/analyst/product ones for this candidate. A bare
+    # "Underwriter"/"Officer"/"Analyst" title carries no seniority marker
+    # either, so without this they fell through both role-fit and seniority
+    # unrecognised and reached PASS by default.
+    (r"\bunderwrit(er|ing)\b", "nontechnical_finance_ops"),
+    (r"\bmortgage\s+(officer|underwriter|fulfillment|advisor|specialist|"
+     r"analyst)\b", "nontechnical_finance_ops"),
+    (r"\bfraud\s+(officer|investigator|specialist)\b", "nontechnical_finance_ops"),
+    (r"\b(aml|anti-money\s+laundering)\b", "nontechnical_finance_ops"),
+    (r"\bcompliance\s+(officer|specialist)\b", "nontechnical_finance_ops"),
+    (r"\bclaims?\s+(adjuster|officer|specialist)\b", "nontechnical_finance_ops"),
+    (r"\bloan\s+officer\b|\bloans?\s+and\s+restructuring\b",
+     "nontechnical_finance_ops"),
+    (r"\bcommercial\s+credit\b", "nontechnical_finance_ops"),
+    (r"\bquality\s+control\s+analyst\b", "nontechnical_operations"),
+    (r"\boperations?\s+officer\b", "nontechnical_operations"),
+    (r"\bchef\s+d['’]équipe\b", "nontechnical_operations"),  # French: team lead
     # Generic sales/support titles, checked after the more specific ones above.
     (r"\bsales\b", "sales"),
     (r"\bcustomer\s+(support|service)\b", "customer_support"),
