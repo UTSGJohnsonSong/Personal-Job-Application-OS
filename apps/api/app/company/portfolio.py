@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from enum import StrEnum
 
 # Companies whose evidence is too thin for a formal rating are never shown in a
@@ -96,6 +97,7 @@ class RoleEntry:
     evidence_coverage: float = 0.0
     recommendation: str = ""
     similarity_group_id: str | None = None
+    application_deadline: datetime | None = None
 
     @property
     def family(self) -> RoleFamily:
@@ -284,3 +286,119 @@ def companies_requiring_action(
             out.append((c, reasons))
     out.sort(key=lambda pair: -pair[0].best_priority)
     return out
+
+
+# ============================================================================
+# Recommended / Backup role selection (2026-07-24).
+#
+# Deliberately a UNIFORM score threshold across every company, not a
+# per-tier one. Application Priority already spends 38% of its weight on
+# Company Platform Value — a per-tier threshold (e.g. "S needs 72, C only
+# needs 48") would apply that same tier signal a second time and produce
+# exactly the contradiction this design avoids: a 71-point S-tier role
+# reading "Backup" while a 63-point A-tier role reads "Recommended", even
+# though 71 > 63 on the one number that's supposed to settle it. Company
+# tier controls a DIFFERENT thing here — how many roles a company must
+# clear before the shortfall backfill kicks in — never the bar itself.
+#
+# Versioned and NOT auto-recalibrated against the live score distribution:
+# thresholds are a deliberate policy decision, reviewed by hand against
+# real postings, not a moving target that silently relabels every job the
+# next time the job pool or formula shifts.
+# ============================================================================
+THRESHOLD_POLICY_VERSION = "v1-2026-07-24"
+STRONG_RECOMMENDED_THRESHOLD = 72.0
+RECOMMENDED_THRESHOLD = 64.0
+BACKUP_FLOOR = 50.0
+
+# How many roles a company must clear (Recommended + Backup combined) before
+# the shortfall message applies instead of forcing a fill.
+MIN_DISPLAY_COUNT: dict[str, int] = {
+    "S": 3, "A": 3, "B": 2, "C": 1, "D": 1, PROVISIONAL_BUCKET: 1,
+}
+
+_YEAR = re.compile(r"\b20\d{2}\b")
+_TRAILING_LOC = re.compile(r"\s*[-(].*$")
+
+
+def _dedup_key(title: str) -> str:
+    """Same company, same role stripped of year/location suffixes.
+
+    A rough approximation ("Data Analyst - Toronto" and "Data Analyst
+    (Vancouver)" collapse to the same key) — it can over-merge a role that
+    happens to share a prefix before its first hyphen/paren but is actually
+    a different team. Accepted tradeoff for catching the far more common
+    case of the same req cross-posted per city or reposted per intake.
+    """
+    t = _YEAR.sub("", title or "")
+    t = _TRAILING_LOC.sub("", t)
+    return re.sub(r"[^a-z0-9]+", "", t.lower())
+
+
+@dataclass
+class RoleSelection:
+    """What to actually show for one company: two labelled buckets.
+
+    `recommended` meets the uniform bar on its own merits. `backup` exists
+    only to keep a company from looking empty when it hasn't cleared that
+    bar — never a claim that these are equally good, and never a rewrite of
+    their own score. `strong_job_ids` marks which recommended roles also
+    clear the higher bar, for a "Strong Recommended" badge without a third
+    bucket.
+    """
+
+    recommended: list[RoleEntry]
+    backup: list[RoleEntry]
+    strong_job_ids: set[str]
+    shortfall_message: str | None
+    policy_version: str = THRESHOLD_POLICY_VERSION
+
+
+def select_company_roles(entry: CompanyEntry, *, now: datetime | None = None) -> RoleSelection:
+    """Partition one company's roles into Recommended / Backup for display.
+
+    Recommended Application Set (app/applications/recommendation.py) is a
+    separate, narrower decision about what to actually apply to — this
+    function only controls what's worth SHOWING, and min_display_count is a
+    display floor, not a claim that the user should apply to all of them.
+    """
+    now = now or datetime.now(UTC)
+    eligible = [
+        r for r in entry.relevant_roles
+        if r.role_band != "R4"
+        and (r.application_deadline is None or r.application_deadline > now)
+    ]
+    eligible.sort(key=lambda r: -r.application_priority)
+
+    recommended = [r for r in eligible if r.application_priority >= RECOMMENDED_THRESHOLD]
+    strong_ids = {r.job_id for r in recommended
+                 if r.application_priority >= STRONG_RECOMMENDED_THRESHOLD}
+
+    min_count = MIN_DISPLAY_COUNT.get(entry.bucket, 2)
+    backup: list[RoleEntry] = []
+    if len(recommended) < min_count:
+        recommended_ids = {r.job_id for r in recommended}
+        seen_keys = {_dedup_key(r.title) for r in recommended}
+        for r in eligible:
+            if len(recommended) + len(backup) >= min_count:
+                break
+            if r.job_id in recommended_ids:
+                continue
+            if r.application_priority < BACKUP_FLOOR:
+                continue
+            key = _dedup_key(r.title)
+            if key in seen_keys:
+                continue
+            seen_keys.add(key)
+            backup.append(r)
+
+    total = len(recommended) + len(backup)
+    shortfall = (
+        None if total >= min_count
+        else f"Only {total} eligible role{'s' if total != 1 else ''} found."
+    )
+
+    return RoleSelection(
+        recommended=recommended, backup=backup, strong_job_ids=strong_ids,
+        shortfall_message=shortfall,
+    )

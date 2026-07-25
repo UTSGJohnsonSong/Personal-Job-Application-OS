@@ -101,12 +101,13 @@ async def scored_job_detail(
                 "description": job.description_text},
         "scores": result.as_dict(),
         "why_it_ranks_here": {
-            "base_priority": result.base_priority,
+            # 2026-07-24: no more base/tier-adjustment/floor split — a plain
+            # weighted sum of the six dimensions, contributions already
+            # reconcile to final_priority (see app/ranking/priority.py).
             "contributions": result.contributions,
-            "tier_adjustment": result.tier_adjustment,
-            "urgency_adjustment": result.urgency_adjustment,
-            "floor_applied": result.floor_applied,
             "final_priority": result.application_priority,
+            "action_urgency": result.action_urgency,
+            "application_effort_minutes": result.application_effort_minutes,
             "rule": result.interaction_rule,
         },
         "evidence_coverage": {

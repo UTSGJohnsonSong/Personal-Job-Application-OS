@@ -88,6 +88,12 @@ export interface CompanyPage extends Omit<PoolCompany, "top_roles" | "has_more">
     probed_on: string | null;
   };
   roles: PoolRole[];
+  role_selection: {
+    recommended_job_ids: string[];
+    strong_job_ids: string[];
+    backup_job_ids: string[];
+    shortfall_message: string | null;
+  };
   counts: { total: number; open: number; canada: number; eligible: number };
 }
 

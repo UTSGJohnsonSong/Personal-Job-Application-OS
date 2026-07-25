@@ -8,7 +8,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import require_token
 from app.applications.recommendation import build_application_set, redundancy_risk
-from app.company.portfolio import companies_requiring_action
+from app.company.portfolio import (
+    THRESHOLD_POLICY_VERSION,
+    companies_requiring_action,
+    select_company_roles,
+)
 from app.db.session import get_session
 from app.models.company_inbox import (
     RecommendedApplicationSet,
@@ -112,7 +116,31 @@ async def company_detail(
     ranked = entry.ranked_roles()
     internal_rank = {r.job_id: i + 1 for i, r in enumerate(ranked)}
 
+    # Recommended / Backup display selection (2026-07-24) — a display-layer
+    # decision, separate from `recommended_application_set` below (which
+    # decides what's actually worth applying to). A role can be a Backup
+    # Candidate here and still never appear in the application set, or vice
+    # versa; this only controls what's worth SHOWING on the company card.
+    selection = select_company_roles(entry)
+
+    def role_dto_with_flags(r, *, is_backup: bool) -> dict:
+        return {
+            **role_dto(r),
+            "is_strong_recommended": r.job_id in selection.strong_job_ids,
+            "is_fallback_candidate": is_backup,
+        }
+
     return {
+        "role_selection": {
+            "policy_version": THRESHOLD_POLICY_VERSION,
+            "recommended_roles": [
+                role_dto_with_flags(r, is_backup=False) for r in selection.recommended
+            ],
+            "backup_candidates": [
+                role_dto_with_flags(r, is_backup=True) for r in selection.backup
+            ],
+            "shortfall_message": selection.shortfall_message,
+        },
         "overview": {
             "company_id": entry.company_id, "name": entry.name,
             "tier": entry.tier, "tier_display": entry.tier_display,

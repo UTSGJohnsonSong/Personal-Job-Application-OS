@@ -21,8 +21,8 @@ const CONTRIB_LABELS: Record<string, string> = {
   role_strategic_value: "Role Strategic Value",
   team_project_quality: "Team Quality",
   current_candidate_fit: "Current Fit",
-  freshness_and_effort: "Urgency / Effort",
-  opportunity_estimate: "Opportunity",
+  career_optionality: "Career Optionality",
+  opportunity_viability: "Opportunity Viability",
 };
 
 export default async function RankingDetail({
@@ -67,7 +67,7 @@ export default async function RankingDetail({
       {/* ---- 1. Why It Ranks Here ---- */}
       <Section
         title="Why It Ranks Here"
-        subtitle="Every point in the final priority, accounted for. Company is 50% of the base in Internship Mode; the tier adjustment is a bounded correction on top."
+        subtitle="Every point in the final priority, accounted for. A plain weighted sum of six independent dimensions — no tier bonus, no priority floor; company standing is captured once, in Company Platform's own weight."
       >
         <div className="space-y-1">
           {Object.entries(w.contributions).map(([k, v]) => (
@@ -76,40 +76,24 @@ export default async function RankingDetail({
               <span className="text-gray-200">+{v.toFixed(1)}</span>
             </div>
           ))}
-          {!("opportunity_estimate" in w.contributions) && (
-            <div className="flex justify-between text-xs">
-              <span className="text-gray-500">Opportunity</span>
-              <span className="text-amber-400">Insufficient data (excluded)</span>
-            </div>
-          )}
-          <div className="border-t border-gray-800 my-2" />
-          <div className="flex justify-between text-xs">
-            <span className="text-gray-300">Base Priority</span>
-            <span className="text-gray-100">{w.base_priority.toFixed(1)}</span>
-          </div>
-          <div className="flex justify-between text-xs">
-            <span className="text-gray-400">Tier Adjustment</span>
-            <span className={w.tier_adjustment >= 0 ? "text-emerald-400" : "text-red-400"}>
-              {w.tier_adjustment >= 0 ? "+" : ""}{w.tier_adjustment.toFixed(1)}
-            </span>
-          </div>
-          {w.urgency_adjustment !== 0 && (
-            <div className="flex justify-between text-xs">
-              <span className="text-gray-400">Urgency (deadline &lt;72h)</span>
-              <span className="text-emerald-400">+{w.urgency_adjustment.toFixed(1)}</span>
-            </div>
-          )}
-          {w.floor_applied && (
-            <div className="text-[11px] text-blue-300">
-              Tier × Role policy floor applied.
-            </div>
-          )}
           <div className="border-t border-gray-800 my-2" />
           <div className="flex justify-between text-sm font-semibold">
             <span className="text-white">Final Application Priority</span>
             <span className="text-white">{w.final_priority.toFixed(1)} / 100</span>
           </div>
           <p className="text-[11px] text-gray-500 mt-2">Rule: {w.rule}</p>
+          <div className="border-t border-gray-800 my-2" />
+          <p className="text-[11px] text-gray-500">
+            Not part of the score — day-planning only:
+          </p>
+          <div className="flex justify-between text-xs">
+            <span className="text-gray-400">Action Urgency</span>
+            <span className="text-gray-300">{w.action_urgency}</span>
+          </div>
+          <div className="flex justify-between text-xs">
+            <span className="text-gray-400">Est. Application Effort</span>
+            <span className="text-gray-300">{w.application_effort_minutes} min</span>
+          </div>
         </div>
       </Section>
 

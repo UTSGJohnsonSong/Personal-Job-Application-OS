@@ -18,6 +18,10 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from app.company.profiles import CompanyProfile
 
 
 class SourceGrade(StrEnum):
@@ -269,4 +273,55 @@ def assess_company(
         dimensions=dims,
         risk=risk,
         notes=notes,
+    )
+
+
+def from_registry_profile(profile: CompanyProfile) -> CompanyIntelligence:
+    """Build a CompanyIntelligence directly from the curated registry.
+
+    `assess_company()` above answers "what does graded evidence say" — the
+    right approach for a company nobody has looked at yet. But nothing ever
+    populates the `CompanyEvidence` table it reads, so every job scored so
+    far got `conservative_score=50, system_tier="D"` regardless of which
+    company it was for. The registry in app/company/profiles.py (262
+    companies, each hand-researched and dated) is not a guess — it is
+    exactly the kind of evidence-backed assessment this module wants, just
+    stored as a reviewed profile instead of individually graded citations.
+    Using it here is not the "Amazon is famous therefore S" shortcut this
+    module's docstring warns against; it is the shortcut this module was
+    supposed to replace, applied where real research already exists.
+
+    Falls back to `assess_company([])` (genuinely unrated) for anything not
+    in the registry, so a company nobody has researched still reads as
+    "unrated" rather than borrowing a stranger's evidence.
+
+    Pairs `platform_score` with `platform_tier` — NOT `personal_tier`. The
+    registry keeps two deliberately separate axes: `platform_tier` answers
+    "is this worth having on a resume" (this module's exact question, and
+    what `platform_score` numerically measures); `personal_tier` answers
+    "how good an application priority is this for him specifically" (it
+    folds in access/reachability and his named-target floors, e.g. Cohere
+    reads personal_tier=S but platform_tier=A — S because it's reachable
+    AND valuable to him, not because the platform itself clears the S bar).
+    Labeling a platform_score of 81.5 as "S" (Cohere's personal_tier) while
+    the number itself only clears the platform A bar (88 is the platform S
+    floor) would be exactly the label/number mismatch this module's own
+    "two axes must not be conflated" rule exists to prevent. `personal_tier`
+    is the right axis for company-level grouping/thresholds (inbox.py), not
+    for this per-dimension score.
+    """
+    return CompanyIntelligence(
+        known_evidence_score=round(profile.platform_score, 2),
+        conservative_score=round(profile.platform_score, 2),
+        estimated_tier=profile.platform_tier,
+        evidence_coverage=1.0,
+        rating_status="high",
+        rated_tier=profile.platform_tier,
+        dimensions=[],
+        risk=RiskAssessment(
+            level=RiskLevel.NONE, evidence_quality="medium",
+            signal_count=0, independent_sources=0,
+            manual_research_required=False,
+        ),
+        notes=[f"From curated registry ({profile.assessed_on}): {profile.why}"],
     )

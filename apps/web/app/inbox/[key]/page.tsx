@@ -22,7 +22,7 @@ function date(v: string | null): string {
   return v ? new Date(v).toLocaleDateString() : "—";
 }
 
-function RoleRow({ r }: { r: PoolRole }) {
+function RoleRow({ r, badge }: { r: PoolRole; badge?: "strong" | "backup" }) {
   return (
     <div className="rounded border border-gray-800 px-3 py-2">
       <div className="flex items-baseline gap-2">
@@ -35,6 +35,16 @@ function RoleRow({ r }: { r: PoolRole }) {
         >
           {r.title}
         </Link>
+        {badge === "strong" && (
+          <span className="text-[10px] px-1.5 py-0.5 rounded border border-emerald-600 text-emerald-300 bg-emerald-950/30">
+            Strong
+          </span>
+        )}
+        {badge === "backup" && (
+          <span className="text-[10px] px-1.5 py-0.5 rounded border border-gray-600 text-gray-400">
+            Backup
+          </span>
+        )}
         <span className={`text-[11px] ${eligibilityTone(r.eligibility)}`}>
           {r.eligibility}
         </span>
@@ -93,9 +103,22 @@ export default async function PoolCompanyPage({
     );
   }
 
-  const eligible = c.roles.filter((r) => r.eligibility === "PASS");
   const review = c.roles.filter((r) => r.eligibility === "REVIEW");
   const blocked = c.roles.filter((r) => r.eligibility === "FAIL");
+
+  // Recommended / Backup (2026-07-24): a display-layer split on top of the
+  // same application_priority score — a uniform bar across every company
+  // (company standing is already 38% of that score; a per-tier bar would
+  // apply it twice), with a small backfill so a thin-looking company still
+  // shows a couple of candidates instead of an empty card.
+  const byId = new Map(c.roles.map((r) => [r.job_id, r]));
+  const strongIds = new Set(c.role_selection.strong_job_ids);
+  const recommendedRoles = c.role_selection.recommended_job_ids
+    .map((id) => byId.get(id))
+    .filter((r): r is PoolRole => r != null);
+  const backupRoles = c.role_selection.backup_job_ids
+    .map((id) => byId.get(id))
+    .filter((r): r is PoolRole => r != null);
 
   return (
     <div className="space-y-5">
@@ -137,30 +160,50 @@ export default async function PoolCompanyPage({
       </div>
 
       <Section
-        title={`Open roles (${eligible.length + review.length})`}
-        subtitle="Ordered by application priority. Click a title for the full posting and scoring detail."
+        title={`Recommended Roles (${recommendedRoles.length})`}
+        subtitle="Clears the uniform application-priority bar — same threshold for every company, regardless of tier."
       >
         <div className="space-y-1.5">
-          {eligible.map((r) => (
-            <RoleRow key={r.job_id} r={r} />
+          {recommendedRoles.map((r) => (
+            <RoleRow key={r.job_id} r={r} badge={strongIds.has(r.job_id) ? "strong" : undefined} />
           ))}
-          {review.length > 0 && (
-            <>
-              <p className="text-[11px] text-amber-400 pt-2">
-                Needs a human check — usually an ambiguous location
-              </p>
-              {review.map((r) => (
-                <RoleRow key={r.job_id} r={r} />
-              ))}
-            </>
-          )}
-          {eligible.length + review.length === 0 && (
+          {recommendedRoles.length === 0 && (
             <p className="text-xs text-gray-500">
-              Nothing open you could apply to right now.
+              Nothing clears the recommended bar right now.
             </p>
           )}
         </div>
       </Section>
+
+      {backupRoles.length > 0 && (
+        <Section
+          title={`Backup Candidates (${backupRoles.length})`}
+          subtitle="Below the recommended bar — shown only so this company isn't empty. Not a claim these are equally good."
+        >
+          <div className="space-y-1.5">
+            {backupRoles.map((r) => (
+              <RoleRow key={r.job_id} r={r} badge="backup" />
+            ))}
+          </div>
+        </Section>
+      )}
+
+      {c.role_selection.shortfall_message && (
+        <p className="text-xs text-amber-400/80">{c.role_selection.shortfall_message}</p>
+      )}
+
+      {review.length > 0 && (
+        <Section
+          title={`Needs a Human Check (${review.length})`}
+          subtitle="Usually an ambiguous location or an unreadable title — not scored into Recommended/Backup above."
+        >
+          <div className="space-y-1.5">
+            {review.map((r) => (
+              <RoleRow key={r.job_id} r={r} />
+            ))}
+          </div>
+        </Section>
+      )}
 
       {blocked.length > 0 && (
         <Section

@@ -115,10 +115,20 @@ class ApplicationPriorityScore(Base, PKMixin, TimestampMixin):
     current_candidate_fit: Mapped[float] = mapped_column(Float, default=0.0)
     team_project_quality: Mapped[float] = mapped_column(Float, default=0.0)
     career_optionality: Mapped[float] = mapped_column(Float, default=0.0)
+    # The sixth weighted dimension (2026-07-24 redesign) — is this posting a
+    # real, live, currently-applicable one, independent of how good it is.
+    opportunity_viability: Mapped[float] = mapped_column(Float, default=0.0)
     evidence_coverage: Mapped[float] = mapped_column(Float, default=0.0)
     application_priority: Mapped[float] = mapped_column(Float, default=0.0, index=True)
 
-    opportunity_estimate: Mapped[str] = mapped_column(String(120), default="")
+    # NOT a score input. When to act, not whether the role is good — a
+    # deadline in 2 days doesn't make a job better, just more time-sensitive.
+    # Was `opportunity_estimate`, tied to personal-outcome history that never
+    # had any data; repurposed since it's the same "informational label,
+    # never scored" shape.
+    action_urgency: Mapped[str] = mapped_column(String(120), default="")
+    # Also NOT a score input — day-planning only (which to knock out first).
+    application_effort_minutes: Mapped[int] = mapped_column(Integer, default=20)
     recommendation: Mapped[str] = mapped_column(String(60), default="")
     # Rules accumulate qualifiers ("... | priority floor 80 applied").
     interaction_rule: Mapped[str] = mapped_column(String(255), default="")

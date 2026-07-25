@@ -37,9 +37,11 @@ export interface ScoredJob {
   current_candidate_fit?: number;
   team_project_quality?: number;
   career_optionality?: number;
+  opportunity_viability?: number;
   evidence_coverage?: number;
   application_priority?: number;
-  opportunity_estimate?: string;
+  action_urgency?: string;
+  application_effort_minutes?: number;
   recommendation?: string;
   interaction_rule?: string;
   why?: string[];
@@ -51,12 +53,11 @@ export interface JobExplanation {
   job: { id: string; title: string; apply_url: string | null; description: string | null };
   scores: Record<string, unknown>;
   why_it_ranks_here: {
-    base_priority: number;
+    // 2026-07-24: plain weighted sum of six dimensions, no floor/tier bonus.
     contributions: Record<string, number>;
-    tier_adjustment: number;
-    urgency_adjustment: number;
-    floor_applied: boolean;
     final_priority: number;
+    action_urgency: string;
+    application_effort_minutes: number;
     rule: string;
   };
   evidence_coverage: {

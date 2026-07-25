@@ -25,6 +25,7 @@ from app.company.portfolio import (
     companies_requiring_action,
     global_priority_queue,
     group_by_tier,
+    select_company_roles,
 )
 from app.company.profiles import resolve
 from app.models.application import Application
@@ -159,6 +160,7 @@ async def load_companies(session: AsyncSession, user_id: str) -> list[CompanyEnt
             career_optionality=score.career_optionality,
             evidence_coverage=score.evidence_coverage,
             recommendation=score.recommendation or "",
+            application_deadline=job.application_deadline,
         ))
 
     # Official source coverage per company.
@@ -303,6 +305,18 @@ async def rebuild_inbox(session: AsyncSession, user_id: str) -> dict:
     }
 
 
+def _selection_summary(c: CompanyEntry) -> dict:
+    """Counts only, for the company-list card — full roles live on the
+    company detail endpoint (app/api/routes/inbox.py `company_detail`)."""
+    sel = select_company_roles(c)
+    return {
+        "recommended": len(sel.recommended),
+        "strong_recommended": len(sel.strong_job_ids),
+        "backup": len(sel.backup),
+        "shortfall_message": sel.shortfall_message,
+    }
+
+
 def tier_view(companies: list[CompanyEntry]) -> list[dict]:
     """View 1 payload: companies grouped into tiers with their top roles."""
     out = []
@@ -325,6 +339,7 @@ def tier_view(companies: list[CompanyEntry]) -> list[dict]:
                     "high_potential_unrated": c.high_potential_unrated,
                     **company_stats(c),
                     "recommended_count": len(build_application_set(c).recommended),
+                    "role_selection_summary": _selection_summary(c),
                     "top_roles": [
                         {
                             "job_id": r.job_id, "title": r.title,

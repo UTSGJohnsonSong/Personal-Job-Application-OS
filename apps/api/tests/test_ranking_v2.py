@@ -221,7 +221,7 @@ def test_fit_reports_coverage_not_bare_precision():
 # ================================================================== ranking
 
 def _score(company_ev, title, body, cand_skills, jd_skills, facts=None,
-           freshness=0.9, effort=20):
+           freshness=0.9, effort=20, deadline=None, source_status="open"):
     jd = parse_jd(body)
     facts = facts or CandidateFacts(highest_degree="bachelors", degree_rank=2,
                                     needs_sponsorship=False)
@@ -235,6 +235,8 @@ def _score(company_ev, title, body, cand_skills, jd_skills, facts=None,
         profile=RankingProfile.for_mode(RankingMode.INTERNSHIP),
         freshness=freshness,
         effort_minutes=effort,
+        application_deadline=deadline,
+        source_status=source_status,
     )
 
 
@@ -260,8 +262,11 @@ def test_amazon_sde_beats_unknown_startup_ai():
     assert small.company_tier != "S"
 
 
-def test_s_tier_bi_analyst_beats_c_tier_backend():
-    """S-tier R3 may outrank an ordinary-company R1 — the user accepted this."""
+def test_reduced_company_weight_lets_role_quality_compete():
+    """2026-07-24: company weight dropped 50% -> 38% specifically so a strong
+    role/team fit at an ordinary company could compete with platform alone —
+    an S-tier R3 no longer automatically beats a well-evidenced R1 at an
+    unrated startup, which is the point of the reweight, not a regression."""
     s_bi = _score(_big_platform(), "Business Intelligence Analyst Intern",
                   "Build dashboards, SQL queries, work with data teams, production reports.",
                   CAND, [JDSkill("sql", True)])
@@ -269,7 +274,10 @@ def test_s_tier_bi_analyst_beats_c_tier_backend():
                        SWE_BODY, CAND, [JDSkill("python", True)])
     assert s_bi.role_band == "R3"
     assert c_backend.role_band == "R1"
-    assert s_bi.application_priority > c_backend.application_priority
+    # Company platform still dominates its own dimension...
+    assert s_bi.company_platform_value.conservative > c_backend.company_platform_value.conservative
+    # ...but no longer guarantees the overall win the way a 50% weight did.
+    assert abs(s_bi.application_priority - c_backend.application_priority) < 5.0
 
 
 def test_s_tier_sales_does_not_beat_b_tier_backend():
@@ -293,13 +301,20 @@ def test_freshness_only_reorders_and_cannot_rescue_a_bad_job():
     assert stale_good.application_priority > fresh_bad.application_priority
 
 
-def test_low_effort_cannot_promote_a_bad_job():
-    easy_bad = _score(_unknown_startup(), "Customer Support Engineer",
-                      "Answer tickets, help customers.", CAND,
-                      [JDSkill("python", True)], effort=2)
-    hard_good = _score(_big_platform(), "Software Development Engineer Intern",
-                       SWE_BODY, CAND, [JDSkill("python", True)], effort=60)
-    assert hard_good.application_priority > easy_bad.application_priority
+def test_application_effort_never_changes_priority():
+    """2026-07-24: effort is day-planning only, never a score input.
+
+    An easy 1-click application is not a BETTER job than one requiring an
+    essay — it is just quicker to knock out. The same posting scored with
+    effort=2 and effort=60 must produce an identical application_priority.
+    """
+    easy = _score(_big_platform(), "Software Development Engineer Intern",
+                  SWE_BODY, CAND, [JDSkill("python", True)], effort=2)
+    hard = _score(_big_platform(), "Software Development Engineer Intern",
+                  SWE_BODY, CAND, [JDSkill("python", True)], effort=60)
+    assert easy.application_priority == hard.application_priority
+    assert easy.application_effort_minutes == 2
+    assert hard.application_effort_minutes == 60
 
 
 def test_eligibility_fail_overrides_every_bonus():
@@ -333,10 +348,49 @@ def test_no_fake_precision_when_coverage_is_low():
     assert "needs research" in " ".join(r.unknowns).lower()
 
 
-def test_opportunity_estimate_is_not_faked():
-    r = _score(_big_platform(), "Software Development Engineer Intern", SWE_BODY,
-               CAND, [JDSkill("python", True)])
-    assert r.opportunity_estimate == "Insufficient Personal Outcome Data"
+def test_how_soon_only_changes_urgency_not_priority():
+    """2026-07-24: 'closes in 2 days' must not make a job score higher than
+    'closes in 60 days' — how soon only changes when to act.
+
+    Whether a deadline is known AT ALL is a legitimate, separate viability
+    signal ("is this a well-defined, structured posting" — per spec, part of
+    Opportunity Viability, not urgency), so no-deadline vs has-a-deadline
+    may legitimately score differently. But among postings that DO have a
+    known deadline, how many days away it is must never move the score —
+    only urgent/soon/normal/low, i.e. action_urgency.
+    """
+    from datetime import UTC, datetime, timedelta
+
+    now = datetime.now(UTC)
+    urgent = _score(_big_platform(), "Software Development Engineer Intern",
+                    SWE_BODY, CAND, [JDSkill("python", True)],
+                    deadline=now + timedelta(days=2))
+    far_out = _score(_big_platform(), "Software Development Engineer Intern",
+                     SWE_BODY, CAND, [JDSkill("python", True)],
+                     deadline=now + timedelta(days=60))
+
+    assert urgent.action_urgency == "urgent"
+    assert far_out.action_urgency == "low"
+    # Both have a KNOWN deadline — only how-soon differs, so score is identical.
+    assert urgent.application_priority == far_out.application_priority
+
+
+def test_deadline_known_is_a_viability_signal_not_urgency():
+    """Whether a deadline is known at all IS allowed to move
+    opportunity_viability (per spec: 'is the deadline known' is one of its
+    inputs) — this is a distinct, legitimate signal from how-soon, which is
+    action_urgency's job alone."""
+    from datetime import UTC, datetime, timedelta
+
+    no_deadline = _score(_big_platform(), "Software Development Engineer Intern",
+                         SWE_BODY, CAND, [JDSkill("python", True)], deadline=None)
+    has_deadline = _score(_big_platform(), "Software Development Engineer Intern",
+                          SWE_BODY, CAND, [JDSkill("python", True)],
+                          deadline=datetime.now(UTC) + timedelta(days=30))
+    assert no_deadline.action_urgency == "unknown"
+    assert has_deadline.action_urgency == "low"
+    assert (has_deadline.opportunity_viability.conservative
+            >= no_deadline.opportunity_viability.conservative)
 
 
 def test_priority_is_not_presented_as_a_match_percentage():
@@ -349,59 +403,112 @@ def test_priority_is_not_presented_as_a_match_percentage():
     # The six scores are reported independently.
     for key in ("company_platform_value", "role_strategic_value",
                 "current_candidate_fit", "team_project_quality",
-                "career_optionality", "evidence_coverage"):
+                "career_optionality", "opportunity_viability", "evidence_coverage"):
         assert key in d
 
 
 def test_internship_mode_weights_platform_above_fit():
     p = RankingProfile.for_mode(RankingMode.INTERNSHIP)
-    assert p.weights.company_platform_value == 0.50
-    assert p.weights.current_candidate_fit == 0.10
+    assert p.weights.company_platform_value == 0.38
+    assert p.weights.current_candidate_fit == 0.11
     assert p.weights.company_platform_value > p.weights.current_candidate_fit
-    # Other modes must not inherit the 50%.
-    assert RankingProfile.for_mode(RankingMode.NEW_GRAD).weights.company_platform_value < 0.50
-    assert RankingProfile.for_mode(RankingMode.EXPERIENCED).weights.company_platform_value < 0.35
+    assert abs(p.weights.total() - 1.0) < 1e-9
+    # Other modes must not inherit the 38%.
+    assert RankingProfile.for_mode(RankingMode.NEW_GRAD).weights.company_platform_value < 0.38
+    assert RankingProfile.for_mode(RankingMode.EXPERIENCED).weights.company_platform_value < 0.25
 
 
 # ======================================== priority decomposition & clamping
 
-def test_priority_is_clamped_and_decomposed():
-    """Company is 50% of the base; the tier effect must be a small, visible
-    correction, not a second large multiplier that can push past 100."""
+def test_priority_is_clamped_and_is_a_plain_weighted_sum():
+    """2026-07-24: no tier bonus, no priority floor — a plain weighted sum
+    of the six dimensions (weights already sum to 1.0, so no normalization
+    dance is needed either)."""
     r = _score(_big_platform(), "Software Development Engineer Intern", SWE_BODY,
                CAND, [JDSkill("python", True)])
     assert 0.0 <= r.application_priority <= 100.0
-    assert 0.0 <= r.base_priority <= 100.0
-    # Base + adjustments must reconcile with the final number (or a floor applied).
-    reconstructed = r.base_priority + r.tier_adjustment + r.urgency_adjustment
-    assert r.floor_applied or abs(reconstructed - r.application_priority) < 0.2
-    # Tier adjustment stays a correction, not a doubling of the platform weight.
-    assert abs(r.tier_adjustment) <= 10.0
+    assert abs(sum(r.contributions.values()) - r.application_priority) < 0.2
 
 
-def test_contributions_explain_the_base():
+def test_contributions_explain_the_total():
     r = _score(_big_platform(), "Software Development Engineer Intern", SWE_BODY,
                CAND, [JDSkill("python", True)])
     assert "company_platform_value" in r.contributions
-    assert abs(sum(r.contributions.values()) - r.base_priority) < 0.5
+    assert abs(sum(r.contributions.values()) - r.application_priority) < 0.5
     # Company should visibly dominate in internship mode.
     assert r.contributions["company_platform_value"] > r.contributions["current_candidate_fit"]
 
 
-def test_opportunity_absent_does_not_enter_the_denominator():
-    """With no outcome history the component is excluded entirely, not set to 50."""
-    r = _score(_big_platform(), "Software Development Engineer Intern", SWE_BODY,
+# ============================== 2026-07-24 redesign regression tests
+
+def test_career_optionality_enters_the_final_score():
+    """The known bug this redesign fixes: career_optionality was computed
+    but never added to application_priority. Two jobs identical except for
+    role band (which drives optionality's breadth/transferability terms)
+    must now produce different totals BECAUSE of the optionality gap, not
+    despite it."""
+    r1 = _score(_big_platform(), "Software Development Engineer Intern", SWE_BODY,
                CAND, [JDSkill("python", True)])
-    assert r.opportunity_estimate == "Insufficient Personal Outcome Data"
-    assert "opportunity_estimate" not in r.contributions
+    r4 = _score(_big_platform(), "Sales Representative",
+               "Own quota, cold call prospects, upsell clients, commission.",
+               CAND, [JDSkill("python", True)])
+    assert r1.career_optionality.conservative > r4.career_optionality.conservative
+    assert r1.contributions["career_optionality"] > 0
+    assert r1.contributions["career_optionality"] != r4.contributions["career_optionality"]
 
 
-def test_provisional_company_gets_no_positive_tier_bonus():
-    """An unproven platform must not receive the platform bonus."""
-    r = _score(_unknown_startup(), "Backend Engineer Intern", SWE_BODY,
-               CAND, [JDSkill("python", True)])
-    assert r.tier_adjustment <= 0.0
-    assert "provisional" in r.interaction_rule.lower() or r.tier_adjustment == 0.0
+def test_company_platform_is_not_double_counted_via_optionality():
+    """The other half of the same bug: optionality used to be 60% company
+    score, which (on top of company already being its own weighted
+    dimension) hid another ~5.4 points of company weight inside a
+    dimension that was supposed to be about the CANDIDATE's next steps.
+    Company standing may now only nudge optionality through the capped
+    10%-of-10% internal-mobility term — at most ~1 point of the total
+    application_priority, not the ~5+ points the old formula hid."""
+    same_role_s = _score(_big_platform(), "Software Development Engineer Intern",
+                         SWE_BODY, CAND, [JDSkill("python", True)])
+    same_role_d = _score(
+        [Evidence(url="u", source_type="news", grade=G.C, supports_dimension=D.BRAND_SIGNAL,
+                  summary="s", value=0.1)],
+        "Software Development Engineer Intern", SWE_BODY, CAND, [JDSkill("python", True)],
+    )
+    optionality_gap = (same_role_s.career_optionality.conservative
+                       - same_role_d.career_optionality.conservative)
+    # Same role/band => transferability, breadth and story-potential terms
+    # are identical; only the 10%-weighted mobility term can differ, capped
+    # at (1.0 - 0.2) * 0.10 = 8 points of optionality's OWN 0-100 scale.
+    assert optionality_gap <= 8.5
+
+
+def test_ownership_language_only_moves_team_quality_not_role_direction():
+    """Ownership/production evidence used to live in both role_strategic_value
+    and team_project_quality. Now the same JD body, swapped between
+    ownership-heavy and support-only phrasing, must move team_project_quality
+    while leaving role_strategic_value's direction/scope terms untouched —
+    those come from the role's TYPE and BAND, not from reading these words."""
+    owned_body = ("Own the roadmap, design and build the core product, deploy to "
+                  "production, ship end-to-end. Python required.")
+    support_body = ("Assist the team with data entry and generate reports under "
+                    "close supervision. Python required.")
+    owned = _score(_big_platform(), "Software Development Engineer Intern",
+                   owned_body, CAND, [JDSkill("python", True)])
+    support = _score(_big_platform(), "Software Development Engineer Intern",
+                     support_body, CAND, [JDSkill("python", True)])
+
+    assert owned.team_project_quality.conservative > support.team_project_quality.conservative
+    # Role family alignment and structural scope are driven by role type/band
+    # (both postings classify the same way here), not by these words.
+    assert owned.role_band == support.role_band
+
+
+def test_missing_team_evidence_lowers_confidence_not_the_score_directly():
+    """No JD body => team_project_quality must read as the neutral prior
+    (50, low coverage), never a fabricated low or high score."""
+    r = _score(_big_platform(), "Software Development Engineer Intern", "",
+               CAND, [])
+    assert r.team_project_quality.coverage == 0.0
+    assert r.team_project_quality.conservative == 50.0
+    assert r.team_project_quality.known_evidence is None
 
 
 def test_role_classification_reports_three_layers():
@@ -450,16 +557,15 @@ def test_persisted_string_columns_fit_worst_case_values():
         "role_band": len("R1"),
         "role_type": len("nontechnical_business_development"),
         "recommendation": len("Apply / Research Company"),
-        "opportunity_estimate": len("Insufficient Personal Outcome Data"),
-        # Rules accumulate qualifiers.
+        "action_urgency": len("unknown"),
+        # No more floor/bonus qualifiers (2026-07-24: no priority floor, no
+        # tier bonus), but keep a margin for the longest plain rule string.
         "interaction_rule": len(
-            "S+R3 → Serious Apply (platform compensates)"
-            " (bonus withheld: provisional evidence)"
-            " | priority floor 80 applied"
+            "S+R3 -> Serious Apply (platform compensates)"
         ),
         "ranking_mode": len("experienced"),
         "formula_version": len("legacy-v1"),
-        "weights_version": len("v2-internship-default"),
+        "weights_version": len("v3-internship-default"),
     }
     for name, needed in worst.items():
         declared = cols[name].type.length

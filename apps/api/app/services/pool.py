@@ -25,6 +25,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.company.access import LocationClass, classify_location
+from app.company.portfolio import CompanyEntry, RoleEntry, select_company_roles
 from app.company.profiles import ALL_PROFILES, BY_KEY, resolve
 from app.company.sources import ALL_SOURCES, SourceStatus
 from app.models.ranking_v2 import ApplicationPriorityScore
@@ -156,6 +157,42 @@ async def build_pool(session: AsyncSession, user_id: str) -> dict:
     }
 
 
+def _role_selection_dict(profile, roles: list[dict]) -> dict:
+    """Recommended/Backup split (2026-07-24) for this company's role dicts.
+
+    Reuses app/company/portfolio.py's select_company_roles rather than
+    reimplementing the threshold/backfill/dedup logic a second time —
+    builds throwaway RoleEntry objects just to run it, since this page's
+    roles are plain dicts (see _live_roles), not RoleEntry instances.
+    """
+    entries = [
+        RoleEntry(
+            job_id=r["job_id"], title=r["title"],
+            role_type=r["role_type"] or "unknown",
+            role_band=r["role_band"] or "R3",
+            application_priority=r["priority"] or 0.0,
+            eligibility=r["eligibility"],
+            application_deadline=(
+                datetime.fromisoformat(r["deadline"]) if r["deadline"] else None
+            ),
+        )
+        for r in roles
+    ]
+    entry = CompanyEntry(
+        company_id=profile.key, name=profile.name, tier=profile.personal_tier,
+        tier_display=profile.personal_tier, provisional=False,
+        platform_value=profile.platform_score, evidence_coverage=1.0,
+        roles=entries,
+    )
+    sel = select_company_roles(entry)
+    return {
+        "recommended_job_ids": [r.job_id for r in sel.recommended],
+        "strong_job_ids": list(sel.strong_job_ids),
+        "backup_job_ids": [r.job_id for r in sel.backup],
+        "shortfall_message": sel.shortfall_message,
+    }
+
+
 async def company_detail(session: AsyncSession, user_id: str, key: str) -> dict | None:
     profile = BY_KEY.get(key)
     if profile is None:
@@ -198,6 +235,7 @@ async def company_detail(session: AsyncSession, user_id: str, key: str) -> dict 
             "probed_on": src.probed_on if src else None,
         },
         "roles": roles,
+        "role_selection": _role_selection_dict(profile, roles),
         "counts": {
             "total": len(roles),
             "open": sum(1 for r in roles if r["eligibility"] != "FAIL"),

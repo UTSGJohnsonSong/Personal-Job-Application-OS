@@ -14,10 +14,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.company.intelligence import (
     CompanyDimension,
+    CompanyIntelligence,
     Evidence,
     SourceGrade,
     assess_company,
+    from_registry_profile,
 )
+from app.company.profiles import resolve as resolve_company_profile
 from app.eligibility.engine import detect_seniority, evaluate
 from app.models.personal import CandidateSkill
 from app.models.ranking_v2 import (
@@ -25,7 +28,7 @@ from app.models.ranking_v2 import (
     CompanyEvidence,
     RoleClassificationRow,
 )
-from app.models.sourcing import Job, JobLocation
+from app.models.sourcing import Company, Job, JobLocation
 from app.parsing.jd_parser import parse_jd
 from app.personal.service import build_candidate_facts
 from app.ranking.gate import evaluate_gate
@@ -104,6 +107,30 @@ async def _company_evidence(session: AsyncSession, company_id: str | None) -> li
     return out
 
 
+async def _assess_company_for_job(
+    session: AsyncSession, company_id: str | None
+) -> CompanyIntelligence:
+    """The registry is the authority when it has a profile; evidence ledger otherwise.
+
+    Without this, every job scored `company_platform_value=50, tier="D"` no
+    matter which company it was for — `CompanyEvidence` has never had a row
+    written to it, so `assess_company()` always fell back to its neutral
+    prior. `app/company/profiles.py` is the 262-company hand-researched
+    registry that already drives the tier badge shown in the inbox
+    (app/services/inbox.py); this makes the per-job ranking number agree
+    with the badge instead of silently ignoring it.
+    """
+    if company_id:
+        company = await session.get(Company, company_id)
+        if company:
+            profile = resolve_company_profile(company.normalized_name) or (
+                resolve_company_profile(company.name)
+            )
+            if profile:
+                return from_registry_profile(profile)
+    return assess_company(await _company_evidence(session, company_id))
+
+
 async def score_job(
     session: AsyncSession,
     job: Job,
@@ -128,7 +155,7 @@ async def score_job(
     # it is detected here and passed in. This is what keeps a "Senior Manager,
     # 10+ years" role out of a co-op student's eligible set.
     seniority = detect_seniority(job.title, jd.years_experience)
-    company = assess_company(await _company_evidence(session, job.company_id))
+    company = await _assess_company_for_job(session, job.company_id)
     # Role family is a hard screen for a technical candidate: a non-technical
     # posting (sales, support, marketing) is off-target and gated out here
     # rather than ranked. Classified before the gate so its band can feed it.
@@ -140,11 +167,6 @@ async def score_job(
     jd_skills = [JDSkill(skill=s, required=True) for s in extract_skills(description)]
     fit = compute_fit(jd_skills, await _candidate_skills(session, user_id))
 
-    deadline_soon = False
-    if job.application_deadline:
-        delta = (job.application_deadline - datetime.now(UTC)).total_seconds()
-        deadline_soon = 0 <= delta <= 72 * 3600
-
     result = compute_priority(
         gate=gate,
         company=company,
@@ -153,9 +175,9 @@ async def score_job(
         description=description,
         profile=RankingProfile.for_mode(mode),
         freshness=job.freshness_score or 0.5,
+        source_status=job.source_status or "open",
+        application_deadline=job.application_deadline,
         effort_minutes=20,
-        has_outcome_history=False,
-        deadline_within_72h=deadline_soon,
     )
 
     if persist:
@@ -172,6 +194,8 @@ async def score_job(
         session.add(
             ApplicationPriorityScore(
                 job_id=job.id, user_id=user_id, ranking_mode=mode.value,
+                formula_version=result.formula_version,
+                weights_version=RankingProfile.for_mode(mode).version_label,
                 eligibility_gate=result.eligibility.gate.value,
                 company_tier=result.company_tier,
                 company_tier_display=result.company_tier_display,
@@ -181,9 +205,11 @@ async def score_job(
                 current_candidate_fit=result.current_candidate_fit.conservative,
                 team_project_quality=result.team_project_quality.conservative,
                 career_optionality=result.career_optionality.conservative,
+                opportunity_viability=result.opportunity_viability.conservative,
                 evidence_coverage=result.evidence_coverage,
                 application_priority=result.application_priority,
-                opportunity_estimate=result.opportunity_estimate,
+                action_urgency=result.action_urgency,
+                application_effort_minutes=result.application_effort_minutes,
                 recommendation=result.recommendation,
                 interaction_rule=result.interaction_rule,
                 why=result.why, why_not=result.why_not, unknowns=result.unknowns,
@@ -204,7 +230,7 @@ async def score_all_jobs(
         await score_job(session, job, user_id, mode=mode)
         scored += 1
     await session.commit()
-    return {"scored": scored, "mode": mode.value, "formula_version": "v2"}
+    return {"scored": scored, "mode": mode.value, "formula_version": "v3"}
 
 
 async def latest_scores(session: AsyncSession, job_ids: list[str]) -> dict[str, dict]:
@@ -233,9 +259,11 @@ async def latest_scores(session: AsyncSession, job_ids: list[str]) -> dict[str, 
             "current_candidate_fit": r.current_candidate_fit,
             "team_project_quality": r.team_project_quality,
             "career_optionality": r.career_optionality,
+            "opportunity_viability": r.opportunity_viability,
             "evidence_coverage": r.evidence_coverage,
             "application_priority": r.application_priority,
-            "opportunity_estimate": r.opportunity_estimate,
+            "action_urgency": r.action_urgency,
+            "application_effort_minutes": r.application_effort_minutes,
             "recommendation": r.recommendation,
             "interaction_rule": r.interaction_rule,
             "why": r.why,
