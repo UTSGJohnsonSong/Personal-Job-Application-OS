@@ -336,16 +336,37 @@ async def score_all_jobs(
     *,
     mode: RankingMode = RankingMode.INTERNSHIP,
     batch_size: int = SCORING_BATCH,
+    only_unscored: bool = False,
+    limit: int | None = None,
 ) -> dict:
-    """Rescore every live posting, a batch at a time.
+    """Rescore live postings, a batch at a time.
 
     Committing per batch is not only about memory: a run that dies partway now
     leaves the batches it finished, so re-running makes progress instead of
     starting from nothing.
+
+    `only_unscored` turns that into a resumable job. On a small instance a full
+    pass over ten thousand postings is long enough that something can interrupt
+    it, and the postings it already scored do not need doing again — this skips
+    them, so repeated runs converge instead of restarting.
     """
-    job_ids = (
-        await session.execute(select(Job.id).where(Job.deleted_at.is_(None)))
-    ).scalars().all()
+    stmt = select(Job.id).where(Job.deleted_at.is_(None))
+    if only_unscored:
+        stmt = stmt.where(
+            ~select(ApplicationPriorityScore.id)
+            .where(
+                ApplicationPriorityScore.job_id == Job.id,
+                ApplicationPriorityScore.user_id == user_id,
+                ApplicationPriorityScore.ranking_mode == mode.value,
+            )
+            .exists()
+        )
+    pending = list((await session.execute(stmt)).scalars().all())
+    # `limit` caps one call so it finishes inside an HTTP request. Ten thousand
+    # postings take minutes; a caller that wants them all loops until
+    # `remaining` reaches zero and gets progress in between, rather than one
+    # request that a proxy will cut off halfway.
+    job_ids = pending[:limit] if limit else pending
 
     # Read the candidate once, not once per posting.
     facts = await build_candidate_facts(session, user_id)
@@ -379,6 +400,7 @@ async def score_all_jobs(
         "scored": scored,
         "failed": failed,
         "total": len(job_ids),
+        "remaining": max(0, len(pending) - len(job_ids)),
         "mode": mode.value,
         "formula_version": "v3",
     }

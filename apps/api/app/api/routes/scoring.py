@@ -35,9 +35,16 @@ async def _sole_user_id(session: AsyncSession) -> str:
 @router.post("/recompute")
 async def recompute(
     mode: str = Body(default="internship", embed=True),
+    only_unscored: bool = Body(default=False, embed=True),
+    limit: int | None = Body(default=None, embed=True),
     session: AsyncSession = Depends(get_session),
 ) -> dict:
-    """Recompute v2 priority for every job. Legacy v1 rows are left untouched."""
+    """Recompute v2 priority. Legacy v1 rows are left untouched.
+
+    `only_unscored` skips postings that already carry a score for this user and
+    mode, which makes the call resumable: a pass that is interrupted can simply
+    be run again and will pick up where it stopped rather than starting over.
+    """
     try:
         rmode = RankingMode(mode)
     except ValueError as exc:
@@ -53,7 +60,9 @@ async def recompute(
             "(GET /pool/refresh/status) and try again",
         )
     user_id = await _sole_user_id(session)
-    result = await score_all_jobs(session, user_id, mode=rmode)
+    result = await score_all_jobs(
+        session, user_id, mode=rmode, only_unscored=only_unscored, limit=limit
+    )
     session.add(AuditLog(actor="user", action="recompute_scores",
                          entity_type="scoring", summary=str(result)))
     await session.commit()

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { api } from "@/lib/api";
+import { API, apiHeaders } from "@/lib/pool";
 
 export async function changeStatus(formData: FormData) {
   const id = String(formData.get("application_id"));
@@ -39,6 +40,32 @@ export async function recordPreference(formData: FormData) {
     String(formData.get("rejected")),
   );
   revalidatePath("/inbox");
+}
+
+/**
+ * Score postings that have none yet, a slice at a time.
+ *
+ * Scoring the whole pool takes minutes, which is longer than a proxy will hold
+ * a request open, so the caller asks for a slice and loops on `remaining`.
+ * Because it only touches unscored rows, an interrupted run is resumed simply
+ * by calling again — nothing is redone.
+ */
+export async function scorePending(limit = 400): Promise<{
+  scored: number;
+  remaining: number;
+  failed: string[];
+}> {
+  const res = await fetch(`${API}/scoring/recompute`, {
+    method: "POST",
+    cache: "no-store",
+    headers: apiHeaders(),
+    body: JSON.stringify({ only_unscored: true, limit }),
+  });
+  if (!res.ok) throw new Error(`scoring/recompute -> ${res.status}`);
+  const d = await res.json();
+  revalidatePath("/board");
+  revalidatePath("/inbox");
+  return { scored: d.scored ?? 0, remaining: d.remaining ?? 0, failed: d.failed ?? [] };
 }
 
 export async function signOut() {

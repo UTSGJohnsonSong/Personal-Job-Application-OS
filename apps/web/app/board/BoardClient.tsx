@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 
-import { queueAdd, queueRemove } from "@/app/actions";
+import { queueAdd, queueRemove, scorePending } from "@/app/actions";
 import {
   GlobalRole,
   POSTURE_HELP,
@@ -45,6 +45,27 @@ export function BoardClient({
   const [showAllPerEmployer, setShowAllPerEmployer] = useState(false);
   const [shortlist, setShortlist] = useState<Set<string>>(new Set(queued));
   const [saving, setSaving] = useState<string | null>(null);
+  const [scoring, setScoring] = useState<string | null>(null);
+
+  /** Loop the slice endpoint until nothing is left unscored.
+   *  One request cannot cover ten thousand postings without a proxy cutting it
+   *  off, and each slice commits, so an interruption here costs one slice. */
+  async function runScoring() {
+    let done = 0;
+    try {
+      for (;;) {
+        setScoring(done ? `Scored ${done}…` : "Starting…");
+        const r = await scorePending(400);
+        done += r.scored;
+        if (r.remaining === 0 || r.scored === 0) break;
+      }
+      setScoring(`Scored ${done} — reloading`);
+      window.location.reload();
+    } catch (e) {
+      setScoring(null);
+      alert(`Scoring stopped after ${done}: ${(e as Error).message}`);
+    }
+  }
 
   /** Writes through to the real apply queue, then reflects it locally.
    *  On failure the row snaps back rather than showing a save that did not
@@ -118,6 +139,25 @@ export function BoardClient({
   return (
     <div className="bd">
       <style>{CSS}</style>
+
+      {/* Postings can be in the database with no score yet — an interrupted
+          scoring pass leaves exactly that, and unscored roles never reach this
+          list. Rather than showing an empty board with no explanation, offer
+          the thing that fixes it. */}
+      {roles.length < 20 && (
+        <div className="prompt">
+          <div>
+            <b>Only {roles.length} scored role{roles.length === 1 ? "" : "s"}.</b>{" "}
+            {register.length} employers are on the register, so if the inbox counts
+            thousands of open roles, they are in the database but unscored — an
+            interrupted scoring pass leaves them that way and they cannot be ranked
+            until it finishes.
+          </div>
+          <button className="btn" onClick={runScoring} disabled={!!scoring}>
+            {scoring ?? "Score them now"}
+          </button>
+        </div>
+      )}
 
       <header className="bd-head">
         <div>
@@ -483,6 +523,11 @@ const CSS = `
 .row.open{background:#fbfbfd}
 .row.listed .rank{color:var(--blue);font-weight:700}
 .row.listed{box-shadow:inset 3px 0 0 var(--blue)}
+.prompt{display:flex;align-items:center;gap:16px;background:var(--card);
+  border:1px solid var(--line);border-left:3px solid var(--blue);border-radius:12px;
+  padding:14px 18px;margin-bottom:20px;font-size:13px;color:var(--ink-2);line-height:1.55}
+.prompt b{color:var(--ink)}
+.prompt .btn{white-space:nowrap}
 .toolbar .count .cap{color:var(--ink-3)}
 .toolbar .count a{color:var(--blue);text-decoration:none}
 .toolbar .count a:hover{text-decoration:underline}
