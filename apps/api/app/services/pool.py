@@ -20,6 +20,7 @@ import asyncio
 import time
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -46,19 +47,40 @@ def _canada(loc: str) -> bool:
 
 
 async def _live_roles(session: AsyncSession, user_id: str) -> dict[str, list[dict]]:
-    """Open roles per registry key, best first, with everything a card needs."""
+    """Open roles per registry key, best first, with everything a card needs.
+
+    Columns, not entities. `select(Job)` hydrates whole ORM objects including
+    `description_text` (the full posting body) and `raw` (the connector's
+    original payload) — tens of kilobytes per row that this function never
+    reads. Against a real pool that is hundreds of megabytes, which is enough
+    to kill a 512MB container on a single page load: the deployed API answered
+    /pool with a 502 for exactly this reason once real postings arrived.
+    """
     jobs = (
-        await session.execute(select(Job).where(Job.deleted_at.is_(None)))
-    ).scalars().all()
+        await session.execute(
+            select(
+                Job.id, Job.title, Job.company_id, Job.department,
+                Job.canonical_application_url, Job.source_posted_at,
+                Job.first_seen_at, Job.application_deadline, Job.freshness_score,
+            ).where(Job.deleted_at.is_(None))
+        )
+    ).all()
     companies = {
-        c.id: c for c in (await session.execute(select(Company))).scalars().all()
+        cid: (name, norm)
+        for cid, name, norm in (
+            await session.execute(
+                select(Company.id, Company.name, Company.normalized_name)
+            )
+        ).all()
     }
     # Same location choice the eligibility gate made. Taking whichever row came
     # back first showed "Dubai · eligible" on a Toronto-and-Dubai requisition —
     # the card contradicting the verdict beside it.
     raw_by_job: dict[str, list[str | None]] = {}
-    for loc in (await session.execute(select(JobLocation))).scalars().all():
-        raw_by_job.setdefault(loc.job_id, []).append(loc.raw_text)
+    for job_id, raw_text in (
+        await session.execute(select(JobLocation.job_id, JobLocation.raw_text))
+    ).all():
+        raw_by_job.setdefault(job_id, []).append(raw_text)
     locations: dict[str, str] = {}
     for job_id, texts in raw_by_job.items():
         chosen = preferred_location(texts)
@@ -69,25 +91,34 @@ async def _live_roles(session: AsyncSession, user_id: str) -> dict[str, list[dic
     # experienced at 18%. Mixing them ranks the pool by a formula nobody asked
     # for. `created_at` is no longer a usable recency signal either — the upsert
     # updates rows in place, so it is pinned to first write.
-    scores: dict[str, ApplicationPriorityScore] = {}
-    for s in (
+    # Columns again, for the same reason: `why` / `why_not` / `unknowns` are
+    # JSON lists on every scored row and none of them are read here.
+    scores: dict[str, Any] = {}
+    for row in (
         await session.execute(
-            select(ApplicationPriorityScore)
+            select(
+                ApplicationPriorityScore.job_id,
+                ApplicationPriorityScore.application_priority,
+                ApplicationPriorityScore.eligibility_gate,
+                ApplicationPriorityScore.role_band,
+                ApplicationPriorityScore.role_type,
+            )
             .where(
                 ApplicationPriorityScore.user_id == user_id,
                 ApplicationPriorityScore.ranking_mode == RankingMode.INTERNSHIP.value,
             )
             .order_by(ApplicationPriorityScore.updated_at.desc())
         )
-    ).scalars().all():
-        scores.setdefault(s.job_id, s)
+    ).all():
+        scores.setdefault(row[0], row)
 
     out: dict[str, list[dict]] = {}
     for job in jobs:
         comp = companies.get(job.company_id or "")
         if comp is None:
             continue
-        profile = resolve(comp.normalized_name) or resolve(comp.name)
+        name, norm = comp
+        profile = resolve(norm) or resolve(name)
         if profile is None:
             continue
         score = scores.get(job.id)
@@ -104,10 +135,10 @@ async def _live_roles(session: AsyncSession, user_id: str) -> dict[str, list[dic
             "deadline": (job.application_deadline.isoformat()
                          if job.application_deadline else None),
             "freshness": round(job.freshness_score, 2),
-            "priority": round(score.application_priority, 1) if score else None,
-            "eligibility": score.eligibility_gate if score else "UNSCORED",
-            "role_band": score.role_band if score else None,
-            "role_type": score.role_type if score else None,
+            "priority": round(score[1], 1) if score else None,
+            "eligibility": score[2] if score else "UNSCORED",
+            "role_band": score[3] if score else None,
+            "role_type": score[4] if score else None,
         })
 
     for roles in out.values():

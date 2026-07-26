@@ -65,11 +65,28 @@ async def _sole_user_id(session: AsyncSession) -> str | None:
 
 async def load_companies(session: AsyncSession, user_id: str) -> list[CompanyEntry]:
     """Assemble CompanyEntry objects from stored jobs + v2 priority scores."""
+    # Columns, not entities. `select(Job)` hydrates `description_text` (the full
+    # posting body) and `raw` (the connector's original payload) on every row —
+    # tens of kilobytes each, none of it read here. On a real pool that is
+    # hundreds of megabytes and it took the 512MB deployed container down on a
+    # single request. `raw` is dropped entirely, which costs `discovery_url`;
+    # that field only ever had a value for manually imported postings.
     jobs = (
-        await session.execute(select(Job).where(Job.deleted_at.is_(None)))
-    ).scalars().all()
+        await session.execute(
+            select(
+                Job.id, Job.title, Job.company_id, Job.department,
+                Job.canonical_application_url, Job.application_deadline,
+                Job.last_verified_at, Job.last_seen_at,
+            ).where(Job.deleted_at.is_(None))
+        )
+    ).all()
     companies = {
-        c.id: c for c in (await session.execute(select(Company))).scalars().all()
+        cid: (name, norm)
+        for cid, name, norm in (
+            await session.execute(
+                select(Company.id, Company.name, Company.normalized_name)
+            )
+        ).all()
     }
 
     # One score per job, for this owner and this ranking mode. Without the mode
@@ -94,10 +111,10 @@ async def load_companies(session: AsyncSession, user_id: str) -> list[CompanyEnt
     # reported no location and no Canadian roles at all.
     # Judged on the same city the gate judged, not on whichever row came first.
     raw_by_job: dict[str, list[str | None]] = {}
-    for loc in (
-        await session.execute(select(JobLocation))
-    ).scalars().all():
-        raw_by_job.setdefault(loc.job_id, []).append(loc.raw_text)
+    for loc_job_id, loc_raw in (
+        await session.execute(select(JobLocation.job_id, JobLocation.raw_text))
+    ).all():
+        raw_by_job.setdefault(loc_job_id, []).append(loc_raw)
     locations: dict[str, str] = {}
     for job_id, texts in raw_by_job.items():
         chosen = preferred_location(texts)
@@ -122,18 +139,19 @@ async def load_companies(session: AsyncSession, user_id: str) -> list[CompanyEnt
         entry = grouped.get(cid)
         if entry is None:
             comp = companies.get(cid)
+            comp_name, comp_norm = comp if comp else (None, None)
             checked = job.last_verified_at or job.last_seen_at
             # The registry is the authority on tier. It is a dated, reviewed
             # assessment; the per-score company_tier is a by-product of however
             # much board evidence happened to be gathered, which is why every
             # company here read "D? (unrated)" while the registry had them
             # rated S through D.
-            profile = resolve(comp.normalized_name if comp else "") or (
-                resolve(comp.name) if comp else None
+            profile = resolve(comp_norm or "") or (
+                resolve(comp_name) if comp_name else None
             )
             entry = CompanyEntry(
                 company_id=cid,
-                name=comp.name if comp else "Unknown company",
+                name=comp_name or "Unknown company",
                 tier=profile.personal_tier if profile else (score.company_tier or "D"),
                 tier_display=(
                     profile.personal_tier if profile
@@ -161,8 +179,9 @@ async def load_companies(session: AsyncSession, user_id: str) -> list[CompanyEnt
             location=location,
             department=job.department,
             canonical_url=job.canonical_application_url,
-            discovery_url=(job.raw or {}).get("discovery_url")
-            if isinstance(job.raw, dict) else None,
+            # Was read from job.raw; that column is no longer loaded (see the
+            # note on the jobs query above). Only manual imports ever set it.
+            discovery_url=None,
             is_student_role=bool(STUDENT_TERMS.search(job.title or "")),
             already_applied=job.id in applied_job_ids,
             company_platform_value=score.company_platform_value,
