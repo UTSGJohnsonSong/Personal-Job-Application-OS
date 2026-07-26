@@ -1,5 +1,19 @@
 # Personal Job Application OS
 
+## ▶ Live
+
+| | |
+|---|---|
+| **Web — start here** | **https://personal-job-application-os-web-lemon.vercel.app** |
+| **Board (the working screen)** | **https://personal-job-application-os-web-lemon.vercel.app/board** |
+| API | https://job-os-api-jstp.onrender.com · docs at `/docs` |
+
+> The API is on a free plan and sleeps after ~15 minutes idle. The first request
+> of the day takes roughly 50 seconds to wake it — the web app will look stuck
+> until it answers. Both sides are protected by the same `API_TOKEN`.
+
+---
+
 A single-user operating system for a job search. It continuously discovers jobs
 (favoring **first-party** sources), understands the candidate from data they
 explicitly provide, screens **eligibility**, ranks with an **explainable** score,

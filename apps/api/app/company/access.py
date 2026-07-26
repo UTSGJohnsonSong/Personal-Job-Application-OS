@@ -12,6 +12,7 @@ Nothing here ever writes back into a tier.
 from __future__ import annotations
 
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass
 from enum import StrEnum
 
@@ -110,6 +111,38 @@ def classify_location(raw: str) -> LocationClass:
         # Remote with no geography at all. Unknown, not permissive.
         return LocationClass.UNKNOWN_LOCATION
     return LocationClass.UNKNOWN_LOCATION
+
+
+# Which location a multi-city posting should be judged on, most reachable first.
+# One requisition advertised in several cities is one application, so the gate
+# must see the best case: judging "Toronto and Dubai" on Dubai fails a job he
+# can take. Ranking by class rather than "Canadian or not" matters because the
+# gate has three outcomes, not two — CANADA_NOT_ELIGIBLE is a HARD FAIL while
+# CANADA_POSSIBLE and UNKNOWN_LOCATION are only REVIEW, so letting an
+# unreachable city win over an unresolved one turns "worth a look" into
+# "silently buried".
+_LOCATION_PREFERENCE: dict[LocationClass, int] = {
+    LocationClass.CANADA_EXPLICIT: 0,
+    LocationClass.CANADA_REMOTE: 0,
+    LocationClass.CANADA_POSSIBLE: 1,
+    LocationClass.AMERICAS_REMOTE_NEEDS_REVIEW: 1,
+    LocationClass.UNKNOWN_LOCATION: 2,
+    LocationClass.CANADA_NOT_ELIGIBLE: 3,
+}
+
+
+def preferred_location(raw_texts: Iterable[str | None]) -> str | None:
+    """The location a posting should be judged and displayed on.
+
+    Ties break alphabetically so the choice is a property of the posting's
+    content. Ordering by row id would not be: ids are random hex and
+    `ingestion.sync._replace_locations` rewrites every location row on each
+    sync, so the pick would change after every re-ingestion.
+    """
+    texts = sorted(t.strip() for t in raw_texts if t and t.strip())
+    if not texts:
+        return None
+    return min(texts, key=lambda t: _LOCATION_PREFERENCE[classify_location(t)])
 
 
 class EligibilityScope(StrEnum):

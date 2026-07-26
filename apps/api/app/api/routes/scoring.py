@@ -14,6 +14,7 @@ from app.models.ranking_v2 import PairwisePreference
 from app.models.sourcing import Job
 from app.models.user import User
 from app.ranking.modes import RankingMode
+from app.services.pool import REFRESH
 from app.services.scoring_v2 import (
     _company_evidence,
     latest_scores,
@@ -41,6 +42,16 @@ async def recompute(
         rmode = RankingMode(mode)
     except ValueError as exc:
         raise HTTPException(400, f"unknown ranking mode: {mode}") from exc
+    # A pool refresh rescores the same rows from its own session. Since scoring
+    # became an upsert against a unique constraint, two concurrent writers no
+    # longer produce a harmless duplicate — the loser hits IntegrityError. One
+    # owner, one rescan at a time.
+    if REFRESH.running:
+        raise HTTPException(
+            409,
+            "a pool refresh is rescoring right now; wait for it to finish "
+            "(GET /pool/refresh/status) and try again",
+        )
     user_id = await _sole_user_id(session)
     result = await score_all_jobs(session, user_id, mode=rmode)
     session.add(AuditLog(actor="user", action="recompute_scores",

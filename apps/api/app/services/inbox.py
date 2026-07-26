@@ -19,6 +19,7 @@ from app.applications.recommendation import (
     build_application_set,
     redundancy_risk,
 )
+from app.company.access import preferred_location
 from app.company.portfolio import (
     CompanyEntry,
     RoleEntry,
@@ -38,6 +39,7 @@ from app.models.company_inbox import (
 from app.models.ranking_v2 import ApplicationPriorityScore
 from app.models.sourcing import Company, Job, JobLocation
 from app.models.user import User
+from app.ranking.modes import RankingMode
 
 CALCULATION_VERSION = "inbox-v1"
 RANKING_FORMULA_VERSION = "v2"
@@ -70,13 +72,18 @@ async def load_companies(session: AsyncSession, user_id: str) -> list[CompanyEnt
         c.id: c for c in (await session.execute(select(Company))).scalars().all()
     }
 
-    # Latest score per job.
+    # One score per job, for this owner and this ranking mode. Without the mode
+    # filter the reader mixes formulas; and since rescoring now UPDATEs in place,
+    # `created_at` is pinned to first write and can no longer order by recency.
     scores: dict[str, ApplicationPriorityScore] = {}
     rows = (
         await session.execute(
             select(ApplicationPriorityScore)
-            .where(ApplicationPriorityScore.user_id == user_id)
-            .order_by(ApplicationPriorityScore.created_at.desc())
+            .where(
+                ApplicationPriorityScore.user_id == user_id,
+                ApplicationPriorityScore.ranking_mode == RankingMode.INTERNSHIP.value,
+            )
+            .order_by(ApplicationPriorityScore.updated_at.desc())
         )
     ).scalars().all()
     for s in rows:
@@ -85,12 +92,17 @@ async def load_companies(session: AsyncSession, user_id: str) -> list[CompanyEnt
     # Locations live in job_locations. Reading them from job.raw["locationsText"]
     # only ever worked for Workday, so every Ashby, Lever and Greenhouse posting
     # reported no location and no Canadian roles at all.
-    locations: dict[str, str] = {}
+    # Judged on the same city the gate judged, not on whichever row came first.
+    raw_by_job: dict[str, list[str | None]] = {}
     for loc in (
         await session.execute(select(JobLocation))
     ).scalars().all():
-        if loc.raw_text and loc.job_id not in locations:
-            locations[loc.job_id] = loc.raw_text
+        raw_by_job.setdefault(loc.job_id, []).append(loc.raw_text)
+    locations: dict[str, str] = {}
+    for job_id, texts in raw_by_job.items():
+        chosen = preferred_location(texts)
+        if chosen:
+            locations[job_id] = chosen
 
     applied_job_ids = {
         a.job_id for a in (

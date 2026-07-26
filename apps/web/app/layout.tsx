@@ -43,6 +43,7 @@ export default async function RootLayout({
               </span>
               <nav className="flex gap-5 text-[13px] text-gray-400">
                 <Link href="/" className="hover:text-white">Dashboard</Link>
+                <Link href="/board" className="hover:text-white">Board</Link>
                 <Link href="/inbox" className="hover:text-white">Job Inbox</Link>
                 <Link href="/queue" className="hover:text-white">Apply Queue</Link>
                 <Link href="/records" className="hover:text-white">Applications</Link>

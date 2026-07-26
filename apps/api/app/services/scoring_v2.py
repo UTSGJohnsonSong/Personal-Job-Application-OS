@@ -12,6 +12,7 @@ from datetime import UTC, datetime
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.company.access import preferred_location
 from app.company.intelligence import (
     CompanyDimension,
     CompanyIntelligence,
@@ -42,6 +43,17 @@ from app.skills.ontology import (
     compute_fit,
     extract_skills,
 )
+
+
+class ScoringDataError(RuntimeError):
+    """The scoring tables are in a shape the code cannot safely write to.
+
+    Raised instead of letting `MultipleResultsFound` escape, because that
+    exception names neither the job nor the fix. The realistic cause is new code
+    running against a database where migration b1c74e9a2f30 has not been
+    applied — a rollback, a hand-started worker, or a failed upgrade.
+    """
+
 
 # Recorded proficiency -> evidence strength. Absent proficiency stays at the
 # most conservative level rather than assuming competence.
@@ -131,6 +143,28 @@ async def _assess_company_for_job(
     return assess_company(await _company_evidence(session, company_id))
 
 
+async def _job_location(session: AsyncSession, job_id: str) -> str | None:
+    """The location the eligibility gate should judge.
+
+    A posting can carry several `JobLocation` rows — one requisition advertised
+    in several cities. You apply to it once, so the most reachable city is the
+    one that decides eligibility.
+
+    This used to be `.limit(1)` with no ORDER BY, which meant whichever row the
+    query plan happened to return. Since location is a HARD gate input, the same
+    job could score PASS on one run and FAIL on the next — which is how rows for
+    one job ended up disagreeing with each other. `preferred_location` ranks by
+    reachability class rather than picking the first row, because the gate has
+    three outcomes and an unreachable city must not outrank an unresolved one.
+    """
+    rows = (
+        await session.execute(
+            select(JobLocation.raw_text).where(JobLocation.job_id == job_id)
+        )
+    ).scalars().all()
+    return preferred_location(rows)
+
+
 async def score_job(
     session: AsyncSession,
     job: Job,
@@ -146,11 +180,7 @@ async def score_job(
     facts = await build_candidate_facts(session, user_id)
     # The posting's location is a hard eligibility input, not decoration. Without
     # it a Canadian PR passed the gate on roles in Dubai, Brazil and Uruguay.
-    location = (
-        await session.execute(
-            select(JobLocation.raw_text).where(JobLocation.job_id == job.id).limit(1)
-        )
-    ).scalar_one_or_none()
+    location = await _job_location(session, job.id)
     # Seniority comes from the title, which the JD-text parser never sees, so
     # it is detected here and passed in. This is what keeps a "Senior Manager,
     # 10+ years" role out of a co-op student's eligible set.
@@ -181,42 +211,103 @@ async def score_job(
     )
 
     if persist:
-        session.add(
-            RoleClassificationRow(
-                job_id=job.id, role_type=role.role_type, band=role.band.value,
-                confidence=role.confidence, technical_density=role.technical_density,
-                transferability=role.transferability, evidence=role.evidence,
-                signals_positive=role.signals_positive,
-                signals_negative=role.signals_negative,
-                needs_review=role.needs_review,
+        # UPDATE in place, never append. Both tables hold current state, not a
+        # history of every run: `score_all_jobs` walks the whole table, so an
+        # insert-only path multiplied both tables by the number of recomputes
+        # (10.2x by 2026-07-25). Readers hid it by taking "latest by created_at",
+        # which made contradictory rows survivable instead of impossible.
+        await _upsert_role_classification(session, job.id, role)
+        await _upsert_priority_score(session, job.id, user_id, mode, result)
+    return result
+
+
+async def _upsert_role_classification(session: AsyncSession, job_id: str, role) -> None:
+    values = dict(
+        role_type=role.role_type, band=role.band.value,
+        confidence=role.confidence, technical_density=role.technical_density,
+        transferability=role.transferability, evidence=role.evidence,
+        signals_positive=role.signals_positive,
+        signals_negative=role.signals_negative,
+        needs_review=role.needs_review,
+    )
+    rows = (
+        await session.execute(
+            select(RoleClassificationRow).where(RoleClassificationRow.job_id == job_id)
+        )
+    ).scalars().all()
+    if len(rows) > 1:
+        raise ScoringDataError(
+            f"job {job_id!r} has {len(rows)} role_classifications rows; the "
+            f"uniqueness migration (b1c74e9a2f30) has not been applied to this "
+            f"database — run `alembic upgrade head` before scoring"
+        )
+    if not rows:
+        session.add(RoleClassificationRow(job_id=job_id, **values))
+        return
+    for field, value in values.items():
+        setattr(rows[0], field, value)
+
+
+async def _upsert_priority_score(
+    session: AsyncSession,
+    job_id: str,
+    user_id: str,
+    mode: RankingMode,
+    result: PriorityResult,
+) -> None:
+    # `manually_overridden` and `override_reason` are deliberately absent: they
+    # are the user's judgement about this job, and rescoring refreshes the
+    # computed numbers AROUND them rather than through them. The omission is the
+    # protection — adding either field here would silently clear a user override
+    # on the next recompute. (No code writes them yet; the column pair is
+    # reserved for an override UI that does not exist. `test_scoring_idempotence`
+    # pins the behaviour so the guarantee survives that UI being built.)
+    values = dict(
+        formula_version=result.formula_version,
+        weights_version=RankingProfile.for_mode(mode).version_label,
+        eligibility_gate=result.eligibility.gate.value,
+        company_tier=result.company_tier,
+        company_tier_display=result.company_tier_display,
+        role_band=result.role_band, role_type=result.role_type,
+        company_platform_value=result.company_platform_value.conservative,
+        role_strategic_value=result.role_strategic_value.conservative,
+        current_candidate_fit=result.current_candidate_fit.conservative,
+        team_project_quality=result.team_project_quality.conservative,
+        career_optionality=result.career_optionality.conservative,
+        opportunity_viability=result.opportunity_viability.conservative,
+        evidence_coverage=result.evidence_coverage,
+        application_priority=result.application_priority,
+        action_urgency=result.action_urgency,
+        application_effort_minutes=result.application_effort_minutes,
+        recommendation=result.recommendation,
+        interaction_rule=result.interaction_rule,
+        why=result.why, why_not=result.why_not, unknowns=result.unknowns,
+        calculated_at=datetime.now(UTC),
+    )
+    rows = (
+        await session.execute(
+            select(ApplicationPriorityScore).where(
+                ApplicationPriorityScore.job_id == job_id,
+                ApplicationPriorityScore.user_id == user_id,
+                ApplicationPriorityScore.ranking_mode == mode.value,
             )
         )
+    ).scalars().all()
+    if len(rows) > 1:
+        raise ScoringDataError(
+            f"job {job_id!r} has {len(rows)} priority rows for user={user_id} "
+            f"mode={mode.value}; the uniqueness migration (b1c74e9a2f30) has not "
+            f"been applied to this database — run `alembic upgrade head` first"
+        )
+    if not rows:
         session.add(
             ApplicationPriorityScore(
-                job_id=job.id, user_id=user_id, ranking_mode=mode.value,
-                formula_version=result.formula_version,
-                weights_version=RankingProfile.for_mode(mode).version_label,
-                eligibility_gate=result.eligibility.gate.value,
-                company_tier=result.company_tier,
-                company_tier_display=result.company_tier_display,
-                role_band=result.role_band, role_type=result.role_type,
-                company_platform_value=result.company_platform_value.conservative,
-                role_strategic_value=result.role_strategic_value.conservative,
-                current_candidate_fit=result.current_candidate_fit.conservative,
-                team_project_quality=result.team_project_quality.conservative,
-                career_optionality=result.career_optionality.conservative,
-                opportunity_viability=result.opportunity_viability.conservative,
-                evidence_coverage=result.evidence_coverage,
-                application_priority=result.application_priority,
-                action_urgency=result.action_urgency,
-                application_effort_minutes=result.application_effort_minutes,
-                recommendation=result.recommendation,
-                interaction_rule=result.interaction_rule,
-                why=result.why, why_not=result.why_not, unknowns=result.unknowns,
-                calculated_at=datetime.now(UTC),
+                job_id=job_id, user_id=user_id, ranking_mode=mode.value, **values
             )
         )
-    return result
+        return
+    for field, value in values.items():
+        setattr(rows[0], field, value)
 
 
 async def score_all_jobs(
@@ -226,29 +317,65 @@ async def score_all_jobs(
         await session.execute(select(Job).where(Job.deleted_at.is_(None)))
     ).scalars().all()
     scored = 0
+    failed: list[str] = []
     for job in jobs:
-        await score_job(session, job, user_id, mode=mode)
-        scored += 1
+        # Per-job isolation. This loop walks ~11k rows and used to commit once at
+        # the end, so a single bad posting discarded every score computed before
+        # it — a ten-minute refresh returning nothing, with one traceback to
+        # explain it. A savepoint keeps the damage to the job that caused it.
+        try:
+            async with session.begin_nested():
+                await score_job(session, job, user_id, mode=mode)
+            scored += 1
+        except Exception as exc:
+            failed.append(f"{job.id}: {type(exc).__name__}: {exc}")
     await session.commit()
-    return {"scored": scored, "mode": mode.value, "formula_version": "v3"}
+    return {
+        "scored": scored,
+        "failed": failed,
+        "mode": mode.value,
+        "formula_version": "v3",
+    }
 
 
-async def latest_scores(session: AsyncSession, job_ids: list[str]) -> dict[str, dict]:
-    """Most recent v2 score per job, for list rendering."""
+async def latest_scores(
+    session: AsyncSession,
+    job_ids: list[str],
+    *,
+    user_id: str | None = None,
+    mode: RankingMode = RankingMode.INTERNSHIP,
+) -> dict[str, dict]:
+    """The score per job for one owner and one ranking mode.
+
+    Filtering on `ranking_mode` is not optional. Scores for different modes are
+    different answers to different questions — `modes.py` weights company
+    platform at 38% for internship and 18% for experienced — so mixing them
+    silently ranks the pool by a formula the user did not ask for.
+
+    This used to rely on "newest row wins" while the table appended a row per
+    run, which happened to surface the mode you last recomputed. Now that
+    rescoring UPDATEs in place, `created_at` stays pinned to when the row was
+    first written, so without this filter the FIRST mode ever scored would win
+    permanently and no recompute could dislodge it.
+    """
     if not job_ids:
         return {}
-    rows = (
-        await session.execute(
-            select(ApplicationPriorityScore)
-            .where(ApplicationPriorityScore.job_id.in_(job_ids))
-            .order_by(ApplicationPriorityScore.created_at.desc())
+    stmt = (
+        select(ApplicationPriorityScore)
+        .where(
+            ApplicationPriorityScore.job_id.in_(job_ids),
+            ApplicationPriorityScore.ranking_mode == mode.value,
         )
-    ).scalars().all()
+        .order_by(ApplicationPriorityScore.updated_at.desc())
+    )
+    if user_id is not None:
+        stmt = stmt.where(ApplicationPriorityScore.user_id == user_id)
+    rows = (await session.execute(stmt)).scalars().all()
 
     out: dict[str, dict] = {}
     for r in rows:
         if r.job_id in out:
-            continue  # first row wins (ordered desc)
+            continue  # one row per (job, user, mode); this only guards a stale DB
         out[r.job_id] = {
             "eligibility": r.eligibility_gate,
             "company_tier": r.company_tier_display,

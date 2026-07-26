@@ -1,0 +1,454 @@
+<!doctype html>
+<!-- No data-theme stamp at rest: the OS preference governs by default and the
+     toggle below stamps an explicit override that wins in either direction. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Job Inbox — redesign prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ══════════════════════════════════════════════════════════════════
+   TOKENS
+   Chrome is achromatic on purpose. Every hue on this page means
+   something: six of them are ranking dimensions, three are the
+   eligibility gate. Nothing is coloured for decoration.
+   Series hexes are the dataviz reference palette, re-validated
+   against these surfaces (light + dark, 6 slots, all checks pass).
+   ══════════════════════════════════════════════════════════════════ */
+:root{
+  --plane:#EEF0EE; --surface:#FBFCFA; --surface-2:#F5F7F4;
+  --ink:#101312; --ink-2:#5C625E; --ink-3:#6B726D;
+  --hair:rgba(16,19,18,.10); --hair-2:rgba(16,19,18,.055);
+  --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a; --s4:#eda100; --s5:#e87ba4; --s6:#008300;
+  /* Status marks are the palette's own steps; the *text* steps are darker,
+     because 11px words need 4.5:1 and the mark steps only clear 3:1. */
+  --good:#0ca30c; --warn:#fab219; --crit:#d03b3b;
+  --good-text:#006300; --warn-text:#8a6000; --crit-text:#b32d2d;
+  --focus:#2a78d6;
+  color-scheme:light;
+}
+:root[data-theme="dark"]{
+  --plane:#101211; --surface:#181A19; --surface-2:#1E211F;
+  --ink:#F2F4F2; --ink-2:#9AA29D; --ink-3:#767D79;
+  --hair:rgba(242,244,242,.12); --hair-2:rgba(242,244,242,.07);
+  --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500; --s5:#d55181; --s6:#008300;
+  --good:#0ca30c; --warn:#fab219; --crit:#d03b3b;
+  /* On the dark surface the mark steps already clear 4.5:1, so text uses them. */
+  --good-text:#0ca30c; --warn-text:#fab219; --crit-text:#e06767;
+  --focus:#3987e5;
+  color-scheme:dark;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --plane:#101211; --surface:#181A19; --surface-2:#1E211F;
+    --ink:#F2F4F2; --ink-2:#9AA29D; --ink-3:#8B938E;
+    --hair:rgba(242,244,242,.12); --hair-2:rgba(242,244,242,.07);
+    --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500; --s5:#d55181; --s6:#008300;
+    --good:#0ca30c; --warn:#fab219; --crit:#d03b3b;
+    --good-text:#0ca30c; --warn-text:#fab219; --crit-text:#e06767;
+    --focus:#3987e5;
+    color-scheme:dark;
+  }
+}
+
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%}
+body{
+  background:var(--plane); color:var(--ink);
+  font-family:"Archivo",system-ui,"Segoe UI",sans-serif;
+  font-size:14px; line-height:1.45;
+  -webkit-font-smoothing:antialiased;
+}
+:focus-visible{outline:2px solid var(--focus); outline-offset:2px; border-radius:3px}
+.num{font-family:"IBM Plex Mono",ui-monospace,monospace; font-variant-numeric:tabular-nums}
+
+/* ── the one characterful treatment: wide Archivo, used only for
+      eyebrows and the hero. Everything else is normal width. ── */
+.wide{font-stretch:118%; letter-spacing:.14em; text-transform:uppercase;
+      font-size:10px; font-weight:600; color:var(--ink-3)}
+
+/* ══ SHELL ══ */
+.shell{display:grid; grid-template-columns:200px 1fr; min-height:100vh}
+.rail{
+  border-right:1px solid var(--hair); padding:20px 0 20px 20px;
+  position:sticky; top:0; height:100vh; display:flex; flex-direction:column; gap:26px;
+}
+.mark{font-weight:700; font-stretch:112%; letter-spacing:-.02em; font-size:15px; line-height:1.2}
+.mark span{display:block; color:var(--ink-3); font-weight:500; font-size:11px;
+           letter-spacing:0; font-stretch:100%; margin-top:2px}
+.rail nav{display:flex; flex-direction:column; gap:1px}
+.rail nav a{
+  color:var(--ink-2); text-decoration:none; padding:6px 10px 6px 0;
+  display:flex; justify-content:space-between; align-items:baseline; gap:8px;
+  border-radius:4px;
+}
+.rail nav a:hover{color:var(--ink)}
+.rail nav a[aria-current]{color:var(--ink); font-weight:600}
+.rail nav a[aria-current]::before{
+  content:""; width:2px; height:14px; background:var(--ink);
+  position:absolute; margin-left:-10px; margin-top:3px;
+}
+.rail nav a b{font-family:"IBM Plex Mono",monospace; font-weight:400;
+              font-size:11px; color:var(--ink-3); font-variant-numeric:tabular-nums}
+.railfoot{margin-top:auto; padding-right:20px; font-size:11px; color:var(--ink-3); line-height:1.5}
+.railfoot strong{color:var(--ink-2); font-weight:500; display:block}
+
+.main{padding:28px 32px 80px; max-width:1560px}
+
+/* ══ HERO — the thesis, not a stat block ══ */
+.hero{margin-bottom:36px; padding-bottom:32px; border-bottom:1px solid var(--hair)}
+.hero h1{
+  font-size:clamp(22px,2.6vw,34px); font-weight:600; font-stretch:106%;
+  letter-spacing:-.025em; line-height:1.12; max-width:22ch; margin:10px 0 6px;
+}
+.hero h1 em{font-style:normal; color:var(--ink-3)}
+.hero p{color:var(--ink-2); max-width:56ch; font-size:13px}
+.twin{display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:22px; max-width:900px}
+.twin figure{background:var(--surface); border:1px solid var(--hair);
+             border-radius:10px; padding:14px 16px 16px}
+.twin figcaption{display:flex; justify-content:space-between; align-items:baseline; gap:10px}
+.twin .co{font-weight:600; font-size:13px}
+.twin .ti{color:var(--ink-2); font-size:12px; margin-top:1px; line-height:1.35}
+.twin .sc{font-family:"IBM Plex Mono",monospace; font-size:21px; font-weight:500;
+          font-variant-numeric:tabular-nums; letter-spacing:-.02em}
+.twin .read{margin-top:12px; font-size:11.5px; color:var(--ink-2); line-height:1.5}
+.twin .read b{color:var(--ink); font-weight:600}
+
+/* ══ CONTRIBUTION BAR — the signature ══
+   Total length = the priority score on a 0–100 track.
+   Each segment = weight_i × dimension_i, i.e. that dimension's
+   actual contribution to the number. Same score, different shape
+   means a different job. 2px surface gaps per dataviz stacked rule. */
+.bar{position:relative; height:10px; background:var(--hair-2);
+     border-radius:3px; overflow:hidden; display:flex}
+.bar.lg{height:16px; border-radius:4px}
+.bar i{display:block; height:100%; box-shadow:2px 0 0 var(--surface)}
+.bar i:last-child{box-shadow:none}
+.bar i:nth-child(1){background:var(--s1)} .bar i:nth-child(2){background:var(--s2)}
+.bar i:nth-child(3){background:var(--s3)} .bar i:nth-child(4){background:var(--s4)}
+.bar i:nth-child(5){background:var(--s5)} .bar i:nth-child(6){background:var(--s6)}
+.bar i:hover{filter:brightness(1.12)}
+
+/* ══ LEGEND — required: ≥2 series never identified by colour alone ══ */
+.legend{display:flex; flex-wrap:wrap; gap:4px 18px; margin:18px 0 14px;
+        font-size:11px; color:var(--ink-2); align-items:center}
+.legend span{display:flex; align-items:center; gap:6px; white-space:nowrap}
+.legend b{width:9px; height:9px; border-radius:2px; flex:none}
+.legend em{font-style:normal; color:var(--ink-3); font-family:"IBM Plex Mono",monospace;
+           font-size:10px}
+.legend span:nth-child(1) b{background:var(--s1)} .legend span:nth-child(2) b{background:var(--s2)}
+.legend span:nth-child(3) b{background:var(--s3)} .legend span:nth-child(4) b{background:var(--s4)}
+.legend span:nth-child(5) b{background:var(--s5)} .legend span:nth-child(6) b{background:var(--s6)}
+
+/* ══ TOOLBAR ══ */
+.toolbar{display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:14px}
+.seg{display:flex; border:1px solid var(--hair); border-radius:7px;
+     overflow:hidden; background:var(--surface)}
+.seg button{
+  font:inherit; font-size:12px; padding:5px 12px; background:none; border:none;
+  color:var(--ink-2); cursor:pointer; border-right:1px solid var(--hair);
+}
+.seg button:last-child{border-right:none}
+.seg button[aria-pressed="true"]{background:var(--ink); color:var(--surface); font-weight:600}
+.spacer{flex:1}
+.ghost{font:inherit; font-size:12px; padding:5px 12px; background:var(--surface);
+       border:1px solid var(--hair); border-radius:7px; color:var(--ink-2); cursor:pointer}
+.ghost:hover{color:var(--ink)}
+
+/* ══ THE LIST ══ */
+.list{background:var(--surface); border:1px solid var(--hair); border-radius:12px;
+      overflow:hidden}
+.head,.row{display:grid; grid-template-columns:34px minmax(200px,1.5fr) minmax(180px,2.2fr) 96px 74px;
+           gap:16px; align-items:center; padding:0 18px}
+.head{height:34px; border-bottom:1px solid var(--hair); background:var(--surface-2)}
+.head div{font-size:10px; letter-spacing:.1em; text-transform:uppercase;
+          color:var(--ink-3); font-weight:600; font-stretch:110%}
+.head .r,.row .r{text-align:right}
+.row{min-height:58px; border-bottom:1px solid var(--hair-2); text-decoration:none; color:inherit}
+.row:last-child{border-bottom:none}
+.row:hover{background:var(--surface-2)}
+.rank{font-family:"IBM Plex Mono",monospace; font-size:11px; color:var(--ink-3);
+      font-variant-numeric:tabular-nums}
+.co{font-weight:600; font-size:13.5px; letter-spacing:-.005em}
+.tags{display:flex; gap:7px; align-items:center; margin-top:3px; font-size:10.5px; color:var(--ink-3)}
+.tier{font-family:"IBM Plex Mono",monospace; font-weight:600; color:var(--ink-2)}
+.ti{font-size:12.5px; color:var(--ink-2); line-height:1.35}
+.score{font-family:"IBM Plex Mono",monospace; font-size:17px; font-weight:500;
+       font-variant-numeric:tabular-nums; letter-spacing:-.02em; text-align:right}
+.ev{font-size:10px; color:var(--ink-3); text-align:right; margin-top:1px;
+    font-family:"IBM Plex Mono",monospace}
+
+/* ══ GATE — status colour never alone: glyph + word, always ══ */
+.gate{display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:600}
+.gate svg{flex:none}
+.gate.pass{color:var(--good-text)} .gate.review{color:var(--warn-text)} .gate.fail{color:var(--crit-text)}
+
+/* ══ TOOLTIP ══ */
+#tip{position:fixed; z-index:60; pointer-events:none; opacity:0; transition:opacity .1s;
+     background:var(--ink); color:var(--plane); font-size:11.5px; line-height:1.5;
+     padding:8px 10px; border-radius:7px; max-width:250px;
+     box-shadow:0 6px 20px -8px rgba(0,0,0,.5)}
+#tip.on{opacity:1}
+#tip b{display:block; font-weight:600; margin-bottom:2px}
+#tip span{font-family:"IBM Plex Mono",monospace; opacity:.75}
+
+/* ══ TABLE VIEW — the relief for sub-3:1 series on the light surface,
+      and the accessible equivalent of the bar. Not optional. ══ */
+.tablewrap{display:none; overflow-x:auto; background:var(--surface);
+           border:1px solid var(--hair); border-radius:12px}
+body.table .tablewrap{display:block}
+body.table .list{display:none}
+table{border-collapse:collapse; width:100%; min-width:820px; font-size:12px}
+th,td{padding:8px 12px; text-align:right; border-bottom:1px solid var(--hair-2);
+      white-space:nowrap; font-family:"IBM Plex Mono",monospace;
+      font-variant-numeric:tabular-nums}
+th:first-child,td:first-child,th:nth-child(2),td:nth-child(2){text-align:left;
+      font-family:"Archivo",sans-serif}
+th{font-size:10px; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-3);
+   font-weight:600; background:var(--surface-2); position:sticky; top:0}
+td:first-child{font-weight:600}
+tbody tr:hover{background:var(--surface-2)}
+
+.note{margin-top:20px; font-size:11.5px; color:var(--ink-3); max-width:70ch; line-height:1.6}
+.note code{font-family:"IBM Plex Mono",monospace; color:var(--ink-2)}
+
+/* ══ RESPONSIVE ══ */
+@media (max-width:1080px){
+  .head,.row{grid-template-columns:28px minmax(150px,1.4fr) minmax(140px,2fr) 74px 64px; gap:12px; padding:0 14px}
+  .twin{grid-template-columns:1fr}
+}
+@media (max-width:820px){
+  .shell{grid-template-columns:1fr}
+  .rail{position:static; height:auto; flex-direction:row; align-items:center; gap:18px;
+        padding:12px 16px; border-right:none; border-bottom:1px solid var(--hair);
+        overflow-x:auto}
+  .rail nav{flex-direction:row; gap:14px}
+  .rail nav a{padding:2px 0}
+  .rail nav a b{display:none}
+  .rail nav a[aria-current]::before{display:none}
+  .rail nav a[aria-current]{text-decoration:underline; text-underline-offset:4px}
+  .mark span,.railfoot{display:none}
+  .main{padding:20px 16px 60px}
+  .head{display:none}
+  .row{grid-template-columns:1fr auto; gap:4px 12px; padding:12px 14px; min-height:0}
+  .row .rank{display:none}
+  .row .barcell{grid-column:1/-1; margin-top:8px}
+  .row .gatecell{grid-column:1; margin-top:6px}
+  .row .scorecell{grid-row:1; grid-column:2; align-self:start}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<div id="tip" role="status" aria-live="polite"></div>
+
+<div class="shell">
+  <aside class="rail">
+    <div class="mark">Job Application OS<span>every submission needs your confirmation</span></div>
+    <nav>
+      <a href="#" aria-current="page">Inbox <b>1660</b></a>
+      <a href="#">Apply queue <b>12</b></a>
+      <a href="#">Applications <b>0</b></a>
+      <a href="#">Library <b>23</b></a>
+    </nav>
+    <div class="railfoot">
+      <strong>Last refresh</strong>2026-07-25 · 41 sources
+    </div>
+  </aside>
+
+  <main class="main">
+
+    <!-- ═══ HERO: the thesis. Two real rows from the pool that score the
+             same and are not the same job. ═══ -->
+    <section class="hero">
+      <p class="wide">833 pass · 827 review · 41 first-party sources</p>
+      <h1>Two jobs can score 67 <em>and not be the same job.</em></h1>
+      <p>The score is a weighted sum of six things. Reading only the number throws
+         away which six. Every row below carries its own composition, so you can
+         see what a score is made of before you spend an evening on it.</p>
+
+      <div class="twin">
+        <figure>
+          <figcaption>
+            <div><div class="co">Spotify</div><div class="ti">Software Engineer, Financial Engineering</div></div>
+            <div class="sc">67.8</div>
+          </figcaption>
+          <div class="bar lg" style="margin-top:12px"
+               data-d="82.0,62.4,45.8,50.0,72.4,75.7" data-t="Spotify"></div>
+          <p class="read">Carried by the <b>platform</b> — 31 of its 68 points are the
+             company name. The day-to-day work scores <b>45.8</b>, the lowest on this page.</p>
+        </figure>
+        <figure>
+          <figcaption>
+            <div><div class="co">Geotab</div><div class="ti">Software Developer, Infrastructure</div></div>
+            <div class="sc">67.6</div>
+          </figcaption>
+          <div class="bar lg" style="margin-top:12px"
+               data-d="58.8,88.2,90.0,13.1,81.2,75.5" data-t="Geotab"></div>
+          <p class="read">The mirror image. Weaker name, <b>best team-quality score
+             in the pool at 90.0</b>. Two tenths of a point apart, opposite bets.</p>
+        </figure>
+      </div>
+    </section>
+
+    <!-- ═══ LEGEND — weights are part of the identity, so they're printed ═══ -->
+    <div class="legend" id="legend">
+      <span><b></b>Company platform <em>38%</em></span>
+      <span><b></b>Role strategic value <em>20%</em></span>
+      <span><b></b>Team / project quality <em>15%</em></span>
+      <span><b></b>Candidate fit <em>11%</em></span>
+      <span><b></b>Career optionality <em>10%</em></span>
+      <span><b></b>Opportunity viability <em>6%</em></span>
+    </div>
+
+    <div class="toolbar">
+      <div class="seg" role="group" aria-label="Filter by eligibility">
+        <button aria-pressed="true" data-f="all">All</button>
+        <button aria-pressed="false" data-f="PASS">Pass</button>
+        <button aria-pressed="false" data-f="REVIEW">Review</button>
+      </div>
+      <div class="spacer"></div>
+      <button class="ghost" id="tableBtn" aria-pressed="false">Table view</button>
+      <button class="ghost" id="themeBtn">Dark</button>
+    </div>
+
+    <div class="list" id="list">
+      <div class="head">
+        <div class="r">#</div><div>Company</div><div>Composition</div>
+        <div>Eligibility</div><div class="r">Priority</div>
+      </div>
+    </div>
+
+    <div class="tablewrap"><table id="tbl">
+      <thead><tr>
+        <th>Company</th><th>Role</th><th>Platform</th><th>Role val</th><th>Team</th>
+        <th>Fit</th><th>Option</th><th>Viability</th><th>Evidence</th><th>Priority</th>
+      </tr></thead><tbody></tbody>
+    </table></div>
+
+    <p class="note">
+      Priority is a plain weighted sum — no tier bonus, no floor. Bar length is the
+      score on a 0–100 track; each segment is <code>weight × dimension</code>, so the
+      segments add up to the number on the right. <code>Evidence</code> is how much of
+      the score rests on confirmed material rather than inference: the four rows below
+      0.60 are scored mostly from the job posting alone.
+    </p>
+
+  </main>
+</div>
+
+<script>
+/* Real rows from data/job_os.db — top-priority role per company.
+   d = [platform, role_strategic, team_quality, fit, optionality, viability] */
+const W = [0.38, 0.20, 0.15, 0.11, 0.10, 0.06];
+const DIM = ["Company platform","Role strategic value","Team / project quality",
+             "Candidate fit","Career optionality","Opportunity viability"];
+const ROWS = [
+ {co:"Anthropic",     ti:"Research Engineer, Production Model Post-Training", tier:"S", g:"REVIEW", p:79.5, ev:0.99, d:[91.1,88.2,61.7,35.0,96.3,75.5]},
+ {co:"Cohere",        ti:"Forward Deployed Engineer, Agentic Platform",       tier:"S", g:"REVIEW", p:77.4, ev:0.99, d:[81.5,88.2,83.3,35.0,83.2,68.3]},
+ {co:"Stripe",        ti:"Machine Learning Engineer",                         tier:"A", g:"REVIEW", p:76.8, ev:0.82, d:[78.4,89.2,74.2,50.0,80.6,75.5]},
+ {co:"1Password",     ti:"Developer, Insights",                               tier:"A", g:"PASS",   p:73.0, ev:0.99, d:[77.9,82.7,77.5,11.7,93.5,77.6]},
+ {co:"Block (Square)",ti:"Oracle Fusion Techno-Functional Developer",         tier:"B", g:"PASS",   p:68.1, ev:0.99, d:[64.0,88.2,70.0,17.5,92.4,75.5]},
+ {co:"Cloudflare",    ti:"Software Engineer, Workers Deploy & Config",        tier:"B", g:"REVIEW", p:68.0, ev:0.99, d:[58.0,88.2,86.7,20.0,85.8,75.5]},
+ {co:"Tenstorrent",   ti:"Infrastructure and Platform Development Engineer",  tier:"B", g:"PASS",   p:67.8, ev:0.99, d:[67.1,88.2,75.0,8.8,79.2,75.5]},
+ {co:"Spotify",       ti:"Software Engineer, Financial Engineering",          tier:"A", g:"PASS",   p:67.8, ev:0.80, d:[82.0,62.4,45.8,50.0,72.4,75.7]},
+ {co:"Thomson Reuters",ti:"Applied Scientist, Search",                        tier:"S", g:"REVIEW", p:67.7, ev:0.53, d:[82.8,58.5,50.0,50.0,69.8,75.5]},
+ {co:"Geotab",        ti:"Software Developer, Infrastructure",                tier:"A", g:"PASS",   p:67.6, ev:0.99, d:[58.8,88.2,90.0,13.1,81.2,75.5]},
+ {co:"TD Bank",       ti:"Associate Software Engineer",                       tier:"A", g:"PASS",   p:67.1, ev:0.53, d:[82.8,54.8,50.0,50.0,68.6,80.5]},
+ {co:"Manulife",      ti:"Data Engineer",                                     tier:"A", g:"REVIEW", p:66.7, ev:0.53, d:[80.0,58.5,50.0,50.0,68.6,79.2]},
+ {co:"Databricks",    ti:"Software Engineer, Distributed Data Systems",       tier:"B", g:"REVIEW", p:66.6, ev:0.99, d:[67.6,88.2,59.2,5.8,92.4,75.5]},
+ {co:"StackAdapt",    ti:"Full Stack Engineer",                               tier:"A", g:"PASS",   p:66.2, ev:0.99, d:[53.5,88.2,82.5,17.5,94.3,75.5]},
+];
+
+const CHECK='<svg width="11" height="11" viewBox="0 0 12 12" aria-hidden="true"><path d="M2 6.4l2.6 2.6L10 3.4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+const EYE  ='<svg width="11" height="11" viewBox="0 0 12 12" aria-hidden="true"><circle cx="6" cy="6" r="4.6" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M6 3.4v3.2M6 8.6v.2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
+
+/* Fill a bar element from its data-d attribute. Segment width is the
+   dimension's contribution as a share of the whole 0–100 track, so the
+   filled length equals the score and the remainder stays as track. */
+function paint(el){
+  const d = el.dataset.d.split(",").map(Number);
+  el.innerHTML = d.map((v,i)=>{
+    const c = v * W[i];
+    return `<i style="width:${c}%" data-i="${i}" data-v="${v}" data-c="${c.toFixed(1)}"></i>`;
+  }).join("");
+}
+
+const list = document.getElementById("list");
+function render(filter){
+  list.querySelectorAll(".row").forEach(n=>n.remove());
+  ROWS.filter(r => filter==="all" || r.g===filter).forEach((r,i)=>{
+    const a = document.createElement("a");
+    a.href = "#"; a.className = "row";
+    a.innerHTML = `
+      <div class="rank r">${i+1}</div>
+      <div><div class="co">${r.co}</div>
+        <div class="tags"><span class="tier">${r.tier}</span><span>${r.ti}</span></div></div>
+      <div class="barcell"><div class="bar" data-d="${r.d.join(",")}" data-t="${r.co}"></div></div>
+      <div class="gatecell"><span class="gate ${r.g.toLowerCase()}">${r.g==="PASS"?CHECK:EYE}${r.g==="PASS"?"Pass":"Review"}</span></div>
+      <div class="scorecell r"><div class="score">${r.p.toFixed(1)}</div>
+        <div class="ev">ev ${r.ev.toFixed(2)}</div></div>`;
+    list.appendChild(a);
+  });
+  /* the title lives on the tags line at wide sizes; hide the duplicate */
+  document.querySelectorAll(".row .tags span:last-child").forEach(s=>{s.className="ti"});
+  document.querySelectorAll(".bar").forEach(paint);
+}
+
+/* Table view — same numbers, no colour required. */
+document.querySelector("#tbl tbody").innerHTML = ROWS.map(r=>
+  `<tr><td>${r.co}</td><td style="white-space:normal">${r.ti}</td>` +
+  r.d.map(v=>`<td>${v.toFixed(1)}</td>`).join("") +
+  `<td>${r.ev.toFixed(2)}</td><td><b>${r.p.toFixed(1)}</b></td></tr>`).join("");
+
+/* Hover layer — dataviz requires it on every mark. */
+const tip = document.getElementById("tip");
+document.addEventListener("mouseover", e=>{
+  const seg = e.target.closest(".bar i"); if(!seg) return;
+  const i = +seg.dataset.i;
+  tip.innerHTML = `<b>${DIM[i]}</b>${seg.dataset.v} × ${(W[i]*100)|0}% ` +
+                  `<span>= ${seg.dataset.c} pts</span>`;
+  tip.classList.add("on");
+});
+document.addEventListener("mousemove", e=>{
+  if(!tip.classList.contains("on")) return;
+  const x = Math.min(e.clientX+14, innerWidth-260);
+  tip.style.left = x+"px"; tip.style.top = (e.clientY+16)+"px";
+});
+document.addEventListener("mouseout", e=>{
+  if(e.target.closest(".bar i")) tip.classList.remove("on");
+});
+
+/* Controls */
+document.querySelectorAll(".seg button").forEach(b=>b.onclick=()=>{
+  document.querySelectorAll(".seg button").forEach(x=>x.setAttribute("aria-pressed","false"));
+  b.setAttribute("aria-pressed","true"); render(b.dataset.f);
+});
+const tb = document.getElementById("tableBtn");
+tb.onclick = ()=>{ const on = document.body.classList.toggle("table");
+  tb.setAttribute("aria-pressed", on); tb.textContent = on ? "Bar view" : "Table view"; };
+/* The button label has to reflect what you are actually looking at, which
+   before the first click is the OS preference rather than any attribute. */
+const th = document.getElementById("themeBtn");
+const osDark = matchMedia("(prefers-color-scheme: dark)");
+const effectiveDark = () => {
+  const stamp = document.documentElement.getAttribute("data-theme");
+  return stamp ? stamp === "dark" : osDark.matches;
+};
+const syncLabel = () => { th.textContent = effectiveDark() ? "Light" : "Dark"; };
+th.onclick = () => {
+  document.documentElement.setAttribute("data-theme", effectiveDark() ? "light" : "dark");
+  syncLabel();
+};
+osDark.addEventListener("change", syncLabel);
+syncLabel();
+
+render("all");
+document.querySelectorAll(".hero .bar").forEach(paint);
+</script>
+</body>
+</html>

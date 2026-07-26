@@ -2,7 +2,17 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import JSON, Boolean, DateTime, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    DateTime,
+    Float,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base, PKMixin, TimestampMixin
@@ -75,7 +85,13 @@ class CompanyResearchRun(Base, PKMixin, TimestampMixin):
 
 
 class RoleClassificationRow(Base, PKMixin, TimestampMixin):
+    """One row per job. Rescoring UPDATES it — it is a current-state row, not a
+    history log. Without the constraint every recompute inserted a fresh row and
+    every reader had to re-derive "the latest one" client-side; ten refreshes had
+    grown this table to 10.2 rows per job (2026-07-25)."""
+
     __tablename__ = "role_classifications"
+    __table_args__ = (UniqueConstraint("job_id", name="uq_role_classification_job"),)
 
     job_id: Mapped[str] = mapped_column(ForeignKey("jobs.id"), index=True)
     role_type: Mapped[str] = mapped_column(String(60), nullable=False)
@@ -91,9 +107,20 @@ class RoleClassificationRow(Base, PKMixin, TimestampMixin):
 
 
 class ApplicationPriorityScore(Base, PKMixin, TimestampMixin):
-    """The v2 result. Six scores stay separate — never merged into a match %."""
+    """The v2 result. Six scores stay separate — never merged into a match %.
+
+    One row per (job, user, mode). Rescoring UPDATES it in place. The uniqueness
+    is load-bearing, not housekeeping: without it a job accumulated one row per
+    recompute, and because the location read below it was non-deterministic for
+    multi-city postings, two rows for the SAME job could disagree on
+    eligibility_gate. Readers papered over this by taking "latest by created_at",
+    which hid the contradiction instead of preventing it.
+    """
 
     __tablename__ = "application_priority_scores"
+    __table_args__ = (
+        UniqueConstraint("job_id", "user_id", "ranking_mode", name="uq_priority_score"),
+    )
 
     job_id: Mapped[str] = mapped_column(ForeignKey("jobs.id"), index=True)
     user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)

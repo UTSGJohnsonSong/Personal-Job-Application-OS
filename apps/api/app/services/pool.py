@@ -24,12 +24,13 @@ from datetime import UTC, datetime
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.company.access import LocationClass, classify_location
+from app.company.access import LocationClass, classify_location, preferred_location
 from app.company.portfolio import CompanyEntry, RoleEntry, select_company_roles
 from app.company.profiles import ALL_PROFILES, BY_KEY, resolve
 from app.company.sources import ALL_SOURCES, SourceStatus
 from app.models.ranking_v2 import ApplicationPriorityScore
 from app.models.sourcing import Company, Job, JobLocation
+from app.ranking.modes import RankingMode
 
 TIER_ORDER = ("S", "A", "B", "C", "D")
 
@@ -52,17 +53,31 @@ async def _live_roles(session: AsyncSession, user_id: str) -> dict[str, list[dic
     companies = {
         c.id: c for c in (await session.execute(select(Company))).scalars().all()
     }
-    locations: dict[str, str] = {}
+    # Same location choice the eligibility gate made. Taking whichever row came
+    # back first showed "Dubai · eligible" on a Toronto-and-Dubai requisition —
+    # the card contradicting the verdict beside it.
+    raw_by_job: dict[str, list[str | None]] = {}
     for loc in (await session.execute(select(JobLocation))).scalars().all():
-        if loc.raw_text and loc.job_id not in locations:
-            locations[loc.job_id] = loc.raw_text
+        raw_by_job.setdefault(loc.job_id, []).append(loc.raw_text)
+    locations: dict[str, str] = {}
+    for job_id, texts in raw_by_job.items():
+        chosen = preferred_location(texts)
+        if chosen:
+            locations[job_id] = chosen
 
+    # Filtered by ranking_mode: internship weights company platform at 38%,
+    # experienced at 18%. Mixing them ranks the pool by a formula nobody asked
+    # for. `created_at` is no longer a usable recency signal either — the upsert
+    # updates rows in place, so it is pinned to first write.
     scores: dict[str, ApplicationPriorityScore] = {}
     for s in (
         await session.execute(
             select(ApplicationPriorityScore)
-            .where(ApplicationPriorityScore.user_id == user_id)
-            .order_by(ApplicationPriorityScore.created_at.desc())
+            .where(
+                ApplicationPriorityScore.user_id == user_id,
+                ApplicationPriorityScore.ranking_mode == RankingMode.INTERNSHIP.value,
+            )
+            .order_by(ApplicationPriorityScore.updated_at.desc())
         )
     ).scalars().all():
         scores.setdefault(s.job_id, s)
