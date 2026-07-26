@@ -113,7 +113,10 @@ export function RefreshButton({
         </div>
       )}
 
-      {status && !status.running && status.finished_at && (
+      {/* Success and failure are mutually exclusive. They used to be two
+          sibling blocks, so a run that failed showed a green "Done · 0 new
+          roles" directly above the red reason — and green reads first. */}
+      {status && !status.running && status.finished_at && !status.error && (
         <p className="text-[11px] text-emerald-400 mt-2">
           Done · {status.new_jobs} new role{status.new_jobs === 1 ? "" : "s"}
         </p>
@@ -121,10 +124,13 @@ export function RefreshButton({
       {status?.error && (
         <p className="text-[11px] text-red-400 mt-2">{status.error}</p>
       )}
-      {running && status?.log && status.log.length > 0 && (
-        <ul className="mt-2 space-y-0.5 max-h-24 overflow-y-auto">
-          {status.log.slice(-5).map((line, i) => (
-            <li key={i} className="text-[10px] text-gray-600 truncate">
+      {/* Kept after the run, not only during it. The per-source lines are the
+          only place a single failing board is ever named, and clearing them on
+          completion threw away the evidence at the moment it became useful. */}
+      {status?.log && status.log.length > 0 && (
+        <ul className="mt-2 space-y-0.5 max-h-32 overflow-y-auto">
+          {status.log.slice(running ? -5 : -12).map((line, i) => (
+            <li key={i} className="text-[10px] text-gray-600 truncate" title={line}>
               {line}
             </li>
           ))}

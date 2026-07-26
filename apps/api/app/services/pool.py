@@ -333,10 +333,54 @@ async def run_refresh(session_factory, user_id: str) -> None:
     from app.connectors.http import HttpClient
     from app.connectors.registry import get_connector
     from app.ingestion.sync import ingest_result
-    from app.models.sourcing import JobSource
+    from app.models.sourcing import Company, JobSource
     from app.schemas.connector import SourceConfig
     from app.services.inbox import rebuild_inbox
     from app.services.scoring_v2 import score_all_jobs
+
+    async def register(session, src, profile) -> JobSource:
+        """Find or create the JobSource row this connector writes into.
+
+        Refresh used to `continue` past any source with no row, logging
+        "not registered, skipped". On a database that has never been seeded —
+        which is every fresh deployment, since SEED_ON_START is false — that is
+        ALL of them: the button returned "Done · 0 new roles" in under a second
+        without opening a single connection, and reported success. The registry
+        in app/company/sources.py is the authority on which boards exist, so
+        the row is created from it here rather than requiring a separate script
+        to have been run first.
+        """
+        key = profile.key
+        company = (
+            await session.execute(
+                select(Company).where(Company.normalized_name == key)
+            )
+        ).scalar_one_or_none()
+        if company is None:
+            company = Company(name=profile.name, normalized_name=key)
+            session.add(company)
+            await session.flush()
+        source = (
+            await session.execute(
+                select(JobSource).where(
+                    JobSource.connector_key == src.connector,
+                    JobSource.external_id == src.external_id,
+                )
+            )
+        ).scalar_one_or_none()
+        if source is None:
+            source = JobSource(
+                connector_key=src.connector, external_id=src.external_id,
+                display_name=profile.name, company_id=company.id,
+                config=dict(src.config), enabled=True,
+            )
+            session.add(source)
+            await session.flush()
+        else:
+            source.company_id = company.id
+            source.config = dict(src.config)
+            source.enabled = True
+        return source
 
     syncable = [s for s in ALL_SOURCES
                 if s.status in (SourceStatus.VERIFIED, SourceStatus.PARTIAL)]
@@ -347,7 +391,10 @@ async def run_refresh(session_factory, user_id: str) -> None:
     REFRESH.error = None
     REFRESH.log = []
     REFRESH.started_at = time.monotonic()
+    REFRESH.finished_at = None  # a failed run must not keep the last success's timestamp
     REFRESH.stage = "sources"
+    fetched = 0
+    failed: list[str] = []
 
     try:
         async with HttpClient(max_retries=2, timeout=45) as http:
@@ -357,15 +404,7 @@ async def run_refresh(session_factory, user_id: str) -> None:
                 try:
                     connector = get_connector(src.connector or "")
                     async with session_factory() as session:
-                        source = (await session.execute(
-                            select(JobSource).where(
-                                JobSource.connector_key == src.connector,
-                                JobSource.external_id == src.external_id)
-                        )).scalar_one_or_none()
-                        if source is None:
-                            REFRESH.log.append(f"{profile.name}: not registered, skipped")
-                            REFRESH.done += 1
-                            continue
+                        source = await register(session, src, profile)
                         result = await connector.fetch(SourceConfig(
                             connector_key=src.connector or "",
                             external_id=src.external_id or "",
@@ -373,13 +412,27 @@ async def run_refresh(session_factory, user_id: str) -> None:
                             config=dict(src.config)), http)
                         stats = await ingest_result(session, source, result)
                         await session.commit()
+                    fetched += 1
                     REFRESH.new_jobs += stats.get("new", 0)
                     REFRESH.log.append(
                         f"{profile.name}: {len(result.raw_jobs)} seen, "
                         f"{stats.get('new', 0)} new")
                 except Exception as exc:  # one bad board never stops the run
-                    REFRESH.log.append(f"{profile.name}: FAILED {type(exc).__name__}")
+                    failed.append(profile.name)
+                    # The message, not just the class. "FAILED HTTPStatusError"
+                    # cannot be acted on; "403 Forbidden" can.
+                    REFRESH.log.append(
+                        f"{profile.name}: FAILED {type(exc).__name__}: {exc}"[:180])
                 REFRESH.done += 1
+
+        # Every board failing is not a successful run with nothing new. Saying
+        # "Done - 0 new roles" in green for that is how a broken deployment
+        # looked healthy for a whole session.
+        if syncable and fetched == 0:
+            REFRESH.error = (
+                f"no source could be read — all {len(syncable)} failed"
+                + (f" (first: {failed[0]})" if failed else "")
+            )
 
         REFRESH.stage = "scoring"
         REFRESH.current = "recomputing priorities"
