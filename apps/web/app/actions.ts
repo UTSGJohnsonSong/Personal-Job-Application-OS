@@ -50,22 +50,35 @@ export async function recordPreference(formData: FormData) {
  * Because it only touches unscored rows, an interrupted run is resumed simply
  * by calling again — nothing is redone.
  */
-export async function scorePending(limit = 400): Promise<{
+export async function scorePending(limit = 50): Promise<{
+  ok: boolean;
   scored: number;
   remaining: number;
-  failed: string[];
+  error?: string;
 }> {
-  const res = await fetch(`${API}/scoring/recompute`, {
-    method: "POST",
-    cache: "no-store",
-    headers: apiHeaders(),
-    body: JSON.stringify({ only_unscored: true, limit }),
-  });
-  if (!res.ok) throw new Error(`scoring/recompute -> ${res.status}`);
-  const d = await res.json();
-  revalidatePath("/board");
-  revalidatePath("/inbox");
-  return { scored: d.scored ?? 0, remaining: d.remaining ?? 0, failed: d.failed ?? [] };
+  // Errors are RETURNED, not thrown. A server action that throws in a
+  // production build reaches the browser as "The specific message is omitted
+  // in production builds", which says nothing about what actually failed.
+  try {
+    const res = await fetch(`${API}/scoring/recompute`, {
+      method: "POST",
+      cache: "no-store",
+      headers: apiHeaders(),
+      body: JSON.stringify({ only_unscored: true, limit }),
+    });
+    if (!res.ok) {
+      return {
+        ok: false,
+        scored: 0,
+        remaining: 0,
+        error: `API returned ${res.status}: ${(await res.text()).slice(0, 300)}`,
+      };
+    }
+    const d = await res.json();
+    return { ok: true, scored: d.scored ?? 0, remaining: d.remaining ?? 0 };
+  } catch (e) {
+    return { ok: false, scored: 0, remaining: 0, error: (e as Error).message };
+  }
 }
 
 export async function signOut() {

@@ -47,24 +47,32 @@ export function BoardClient({
   const [saving, setSaving] = useState<string | null>(null);
   const [scoring, setScoring] = useState<string | null>(null);
 
-  /** Loop the slice endpoint until nothing is left unscored.
-   *  One request cannot cover ten thousand postings without a proxy cutting it
-   *  off, and each slice commits, so an interruption here costs one slice. */
+  /* Fifty at a time. A server action runs as a serverless function with a hard
+     wall-clock limit — ten to fifteen seconds on the free tier — and a slice of
+     400 postings takes the API about thirty. That call was cut off mid-flight
+     every time, and the browser only ever saw "the specific message is omitted
+     in production builds". Fifty finishes in a few seconds and fits under any
+     of these limits; the loop makes the slice size invisible. */
+  const SLICE = 50;
   async function runScoring() {
     let done = 0;
-    try {
-      for (;;) {
-        setScoring(done ? `Scored ${done}…` : "Starting…");
-        const r = await scorePending(400);
-        done += r.scored;
-        if (r.remaining === 0 || r.scored === 0) break;
+    for (;;) {
+      setScoring(done ? `Scored ${done}…` : "Starting…");
+      const r = await scorePending(SLICE);
+      if (!r.ok) {
+        setScoring(null);
+        alert(
+          `Scoring stopped after ${done}.\n\n${r.error}\n\n` +
+            `Nothing is lost — every slice is committed as it finishes, and ` +
+            `running it again resumes from where this stopped.`,
+        );
+        return;
       }
-      setScoring(`Scored ${done} — reloading`);
-      window.location.reload();
-    } catch (e) {
-      setScoring(null);
-      alert(`Scoring stopped after ${done}: ${(e as Error).message}`);
+      done += r.scored;
+      if (r.remaining === 0 || r.scored === 0) break;
     }
+    setScoring(`Scored ${done} — reloading`);
+    window.location.reload();
   }
 
   /** Writes through to the real apply queue, then reflects it locally.
