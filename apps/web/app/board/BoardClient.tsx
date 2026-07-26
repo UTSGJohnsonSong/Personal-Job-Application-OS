@@ -53,23 +53,40 @@ export function BoardClient({
      every time, and the browser only ever saw "the specific message is omitted
      in production builds". Fifty finishes in a few seconds and fits under any
      of these limits; the loop makes the slice size invisible. */
-  const SLICE = 50;
   async function runScoring() {
+    /* Adaptive slice. The size a hosted instance can absorb is not knowable
+       from here — it depends on its memory, its request timeout and the
+       latency to its database, none of which this page can see. So back off on
+       failure instead of guessing: halve, retry, and only give up when even
+       five postings will not go through. Because a slice is committed as it
+       completes and only unscored rows are picked up, a failed attempt costs
+       nothing and a smaller retry resumes rather than repeats. */
+    let slice = 50;
     let done = 0;
+    let failures = 0;
     for (;;) {
       setScoring(done ? `Scored ${done}…` : "Starting…");
-      const r = await scorePending(SLICE);
+      const r = await scorePending(slice);
       if (!r.ok) {
+        if (slice > 5) {
+          slice = Math.max(5, Math.floor(slice / 2));
+          failures++;
+          setScoring(`Retrying in slices of ${slice}…`);
+          continue;
+        }
         setScoring(null);
         alert(
           `Scoring stopped after ${done}.\n\n${r.error}\n\n` +
-            `Nothing is lost — every slice is committed as it finishes, and ` +
-            `running it again resumes from where this stopped.`,
+            `Backed off to slices of ${slice} and it still failed, so this is ` +
+            `not about size. Nothing is lost — every slice is committed as it ` +
+            `finishes and running this again resumes from where it stopped.`,
         );
         return;
       }
       done += r.scored;
       if (r.remaining === 0 || r.scored === 0) break;
+      // Recover the slice size once the instance is coping again.
+      if (failures > 0 && slice < 50) slice = Math.min(50, slice * 2);
     }
     setScoring(`Scored ${done} — reloading`);
     window.location.reload();
