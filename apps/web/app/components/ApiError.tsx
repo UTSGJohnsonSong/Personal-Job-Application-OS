@@ -23,10 +23,25 @@ export function ApiError({ error }: { error: string }) {
       )}
       {unavailable && (
         <>
-          <div className="font-medium">API refusing to serve (503).</div>
+          <div className="font-medium">API unavailable (503).</div>
           <div className="text-amber-300/80 text-xs">
-            The API has no <code className="text-amber-100">API_TOKEN</code> configured
-            and is refusing to serve protected data rather than exposing it.
+            A 503 has more than one cause and this message used to name only one
+            of them, which sent a real outage down the wrong path. In order of
+            likelihood:
+            <ul className="list-disc ml-4 mt-1 space-y-0.5">
+              <li>
+                <b>The instance is down or restarting.</b> The host returns 503
+                for a service that crashed — check the platform dashboard for a
+                failed deploy or an out-of-memory restart. A free tier waking
+                from sleep also does this for ~50s.
+              </li>
+              <li>
+                <b>The API really has no</b>{" "}
+                <code className="text-amber-100">API_TOKEN</code>{" "}
+                <b>configured</b> and is refusing to serve protected data rather
+                than exposing it. Only this case is a configuration problem.
+              </li>
+            </ul>
           </div>
         </>
       )}
