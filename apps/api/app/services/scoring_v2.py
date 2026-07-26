@@ -120,7 +120,9 @@ async def _company_evidence(session: AsyncSession, company_id: str | None) -> li
 
 
 async def _assess_company_for_job(
-    session: AsyncSession, company_id: str | None
+    session: AsyncSession,
+    company_id: str | None,
+    cache: dict[str, CompanyIntelligence] | None = None,
 ) -> CompanyIntelligence:
     """The registry is the authority when it has a profile; evidence ledger otherwise.
 
@@ -132,6 +134,14 @@ async def _assess_company_for_job(
     (app/services/inbox.py); this makes the per-job ranking number agree
     with the badge instead of silently ignoring it.
     """
+    # There are 262 employers and ten thousand postings, so without a cache this
+    # runs the same lookup forty times per company on a full pass — a round trip
+    # to the database each time, which on a hosted instance is most of the cost
+    # of scoring one posting.
+    if cache is not None and company_id and company_id in cache:
+        return cache[company_id]
+
+    result: CompanyIntelligence | None = None
     if company_id:
         company = await session.get(Company, company_id)
         if company:
@@ -139,8 +149,12 @@ async def _assess_company_for_job(
                 resolve_company_profile(company.name)
             )
             if profile:
-                return from_registry_profile(profile)
-    return assess_company(await _company_evidence(session, company_id))
+                result = from_registry_profile(profile)
+    if result is None:
+        result = assess_company(await _company_evidence(session, company_id))
+    if cache is not None and company_id:
+        cache[company_id] = result
+    return result
 
 
 async def _job_location(session: AsyncSession, job_id: str) -> str | None:
@@ -174,6 +188,7 @@ async def score_job(
     persist: bool = True,
     facts: CandidateFacts | None = None,
     skills: list[CandidateSkillEvidence] | None = None,
+    company_cache: dict[str, CompanyIntelligence] | None = None,
 ) -> PriorityResult:
     """Compute the v2 priority for one job and (optionally) persist it.
 
@@ -193,7 +208,7 @@ async def score_job(
     # it is detected here and passed in. This is what keeps a "Senior Manager,
     # 10+ years" role out of a co-op student's eligible set.
     seniority = detect_seniority(job.title, jd.years_experience)
-    company = await _assess_company_for_job(session, job.company_id)
+    company = await _assess_company_for_job(session, job.company_id, company_cache)
     # Role family is a hard screen for a technical candidate: a non-technical
     # posting (sales, support, marketing) is off-target and gated out here
     # rather than ranked. Classified before the gate so its band can feed it.
@@ -371,6 +386,7 @@ async def score_all_jobs(
     # Read the candidate once, not once per posting.
     facts = await build_candidate_facts(session, user_id)
     skills = await _candidate_skills(session, user_id)
+    company_cache: dict[str, CompanyIntelligence] = {}
 
     scored = 0
     failed: list[str] = []
@@ -386,7 +402,8 @@ async def score_all_jobs(
             try:
                 async with session.begin_nested():
                     await score_job(
-                        session, job, user_id, mode=mode, facts=facts, skills=skills
+                        session, job, user_id, mode=mode, facts=facts,
+                        skills=skills, company_cache=company_cache,
                     )
                 scored += 1
             except Exception as exc:
