@@ -22,7 +22,7 @@ from app.company.intelligence import (
     from_registry_profile,
 )
 from app.company.profiles import resolve as resolve_company_profile
-from app.eligibility.engine import detect_seniority, evaluate
+from app.eligibility.engine import CandidateFacts, detect_seniority, evaluate
 from app.models.personal import CandidateSkill
 from app.models.ranking_v2 import (
     ApplicationPriorityScore,
@@ -172,12 +172,20 @@ async def score_job(
     *,
     mode: RankingMode = RankingMode.INTERNSHIP,
     persist: bool = True,
+    facts: CandidateFacts | None = None,
+    skills: list[CandidateSkillEvidence] | None = None,
 ) -> PriorityResult:
-    """Compute the v2 priority for one job and (optionally) persist it."""
+    """Compute the v2 priority for one job and (optionally) persist it.
+
+    `facts` and `skills` describe the candidate, not the posting, so a batch
+    run passes them in once instead of re-reading them per job — that was two
+    extra queries on every one of ~10k postings.
+    """
     description = job.description_text or ""
     jd = parse_jd(description)
 
-    facts = await build_candidate_facts(session, user_id)
+    if facts is None:
+        facts = await build_candidate_facts(session, user_id)
     # The posting's location is a hard eligibility input, not decoration. Without
     # it a Canadian PR passed the gate on roles in Dubai, Brazil and Uruguay.
     location = await _job_location(session, job.id)
@@ -195,7 +203,9 @@ async def score_job(
         role_band=role.band.value, role_type=role.role_type))
 
     jd_skills = [JDSkill(skill=s, required=True) for s in extract_skills(description)]
-    fit = compute_fit(jd_skills, await _candidate_skills(session, user_id))
+    if skills is None:
+        skills = await _candidate_skills(session, user_id)
+    fit = compute_fit(jd_skills, skills)
 
     result = compute_priority(
         gate=gate,
@@ -310,29 +320,65 @@ async def _upsert_priority_score(
         setattr(rows[0], field, value)
 
 
+# How many postings are held in memory at once. Scoring genuinely needs
+# `description_text` — it parses the posting body — so unlike the read paths
+# this cannot be made cheaper by selecting fewer columns; it has to be made
+# smaller. At ~10k postings a single pass held the whole table plus every
+# parsed intermediate, which is what killed the 512MB deployed container
+# mid-refresh: the postings landed, the scores never did, and the board showed
+# one seeded row while the inbox counted ten thousand.
+SCORING_BATCH = 200
+
+
 async def score_all_jobs(
-    session: AsyncSession, user_id: str, *, mode: RankingMode = RankingMode.INTERNSHIP
+    session: AsyncSession,
+    user_id: str,
+    *,
+    mode: RankingMode = RankingMode.INTERNSHIP,
+    batch_size: int = SCORING_BATCH,
 ) -> dict:
-    jobs = (
-        await session.execute(select(Job).where(Job.deleted_at.is_(None)))
+    """Rescore every live posting, a batch at a time.
+
+    Committing per batch is not only about memory: a run that dies partway now
+    leaves the batches it finished, so re-running makes progress instead of
+    starting from nothing.
+    """
+    job_ids = (
+        await session.execute(select(Job.id).where(Job.deleted_at.is_(None)))
     ).scalars().all()
+
+    # Read the candidate once, not once per posting.
+    facts = await build_candidate_facts(session, user_id)
+    skills = await _candidate_skills(session, user_id)
+
     scored = 0
     failed: list[str] = []
-    for job in jobs:
-        # Per-job isolation. This loop walks ~11k rows and used to commit once at
-        # the end, so a single bad posting discarded every score computed before
-        # it — a ten-minute refresh returning nothing, with one traceback to
-        # explain it. A savepoint keeps the damage to the job that caused it.
-        try:
-            async with session.begin_nested():
-                await score_job(session, job, user_id, mode=mode)
-            scored += 1
-        except Exception as exc:
-            failed.append(f"{job.id}: {type(exc).__name__}: {exc}")
-    await session.commit()
+    for start in range(0, len(job_ids), batch_size):
+        chunk = job_ids[start : start + batch_size]
+        jobs = (
+            await session.execute(select(Job).where(Job.id.in_(chunk)))
+        ).scalars().all()
+        for job in jobs:
+            # Per-job isolation. Before this, one bad posting discarded every
+            # score computed before it — a ten-minute refresh returning nothing,
+            # with a single traceback to explain it.
+            try:
+                async with session.begin_nested():
+                    await score_job(
+                        session, job, user_id, mode=mode, facts=facts, skills=skills
+                    )
+                scored += 1
+            except Exception as exc:
+                failed.append(f"{job.id}: {type(exc).__name__}: {exc}")
+        await session.commit()
+        # Drop the batch from the identity map. Without this the session keeps a
+        # reference to every posting it has ever loaded and batching buys nothing.
+        session.expunge_all()
+
     return {
         "scored": scored,
         "failed": failed,
+        "total": len(job_ids),
         "mode": mode.value,
         "formula_version": "v3",
     }

@@ -42,6 +42,7 @@ export function BoardClient({
   const [detail, setDetail] = useState<Record<string, RoleDetail | "loading" | "error">>({});
   const [canadaOnly, setCanadaOnly] = useState(false);
   const [hideReview, setHideReview] = useState(false);
+  const [showAllPerEmployer, setShowAllPerEmployer] = useState(false);
   const [shortlist, setShortlist] = useState<Set<string>>(new Set(queued));
   const [saving, setSaving] = useState<string | null>(null);
 
@@ -74,15 +75,30 @@ export function BoardClient({
     return m;
   }, [register]);
 
-  const shown = useMemo(
-    () =>
-      roles.filter(
-        (r) =>
-          (!canadaOnly || reachOf(r.location) === "ca") &&
-          (!hideReview || r.eligibility === "PASS"),
-      ),
-    [roles, canadaOnly, hideReview],
-  );
+  /* At most three roles from any one employer, unless asked otherwise.
+     One company with an open board can hold hundreds of postings — a flat
+     priority list then becomes that company's careers page. You are not going
+     to send six applications to the same employer anyway, so the rest are
+     noise here; they stay one click away under Employers. */
+  const PER_EMPLOYER = 3;
+  const { shown, hidden } = useMemo(() => {
+    const passing = roles.filter(
+      (r) =>
+        (!canadaOnly || reachOf(r.location) === "ca") &&
+        (!hideReview || r.eligibility === "PASS"),
+    );
+    if (showAllPerEmployer) return { shown: passing, hidden: 0 };
+    const seen: Record<string, number> = {};
+    const kept: GlobalRole[] = [];
+    let dropped = 0;
+    for (const r of passing) {
+      const n = (seen[r.company] ?? 0) + 1;
+      seen[r.company] = n;
+      if (n <= PER_EMPLOYER) kept.push(r);
+      else dropped++;
+    }
+    return { shown: kept, hidden: dropped };
+  }, [roles, canadaOnly, hideReview, showAllPerEmployer]);
 
   async function toggleRole(jobId: string) {
     if (openRole === jobId) return setOpenRole(null);
@@ -134,8 +150,22 @@ export function BoardClient({
           <div className="toolbar">
             <Toggle on={canadaOnly} set={setCanadaOnly} label="Canada only" />
             <Toggle on={hideReview} set={setHideReview} label="Ready to apply only" />
+            {(hidden > 0 || showAllPerEmployer) && (
+              <Toggle
+                on={showAllPerEmployer}
+                set={setShowAllPerEmployer}
+                label={
+                  showAllPerEmployer
+                    ? "Top 3 per employer"
+                    : `Show ${hidden} more from the same employers`
+                }
+              />
+            )}
             <span className="count">
               {shown.length} shown
+              {!showAllPerEmployer && hidden > 0 && (
+                <span className="cap"> · top {PER_EMPLOYER} per employer</span>
+              )}
               {shortlist.size > 0 && (
                 <>
                   {" · "}
@@ -453,6 +483,7 @@ const CSS = `
 .row.open{background:#fbfbfd}
 .row.listed .rank{color:var(--blue);font-weight:700}
 .row.listed{box-shadow:inset 3px 0 0 var(--blue)}
+.toolbar .count .cap{color:var(--ink-3)}
 .toolbar .count a{color:var(--blue);text-decoration:none}
 .toolbar .count a:hover{text-decoration:underline}
 .btn:disabled{opacity:.55;cursor:default}
