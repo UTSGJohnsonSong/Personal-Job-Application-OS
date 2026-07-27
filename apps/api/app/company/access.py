@@ -12,6 +12,7 @@ Nothing here ever writes back into a tier.
 from __future__ import annotations
 
 import re
+import unicodedata
 from collections.abc import Iterable
 from dataclasses import dataclass
 from enum import StrEnum
@@ -86,12 +87,32 @@ _FOREIGN = re.compile(
     r"china|shanghai|beijing|shenzhen|hong kong|taiwan|taipei|"
     r"australia|sydney|melbourne|brisbane|new zealand|auckland|"
     r"mexico|brazil|s.o paulo|rio de janeiro|argentina|buenos aires|"
-    r"uruguay|montevideo|chile|santiago|colombia|bogot|peru|lima|costa rica)",
+    r"uruguay|montevideo|chile|santiago|colombia|bogot|peru|lima|costa rica|"
+    # Whole-region strings. A board that says only "Europe" or "EMEA" is not
+    # ambiguous for a candidate who must work in Canada.
+    r"\beurope\b|\bEMEA\b|\bAPAC\b|\bLATAM\b|middle east|asia pacific|"
+    r"united arab emirates|zug|basel|geneva|lausanne|bern|gothenburg|"
+    r"malmo|aarhus|gdansk|krakow|wroclaw|brno|tallinn|riga|vilnius)",
     re.I)
 
 
+def _fold(text: str) -> str:
+    """Strip diacritics so the patterns below match what boards actually print.
+
+    Greenhouse returned "Zürich, CH" and the foreign-location pattern spells it
+    "zurich", so a Swiss posting classified as UNKNOWN_LOCATION — which is only
+    a REVIEW, not a FAIL. The role then sat at the top of the board marked
+    "needs a look". The same silent miss applied to Montréal, São Paulo and
+    Bogotá; folding once here fixes the whole class rather than adding spellings
+    one at a time.
+    """
+    return "".join(
+        c for c in unicodedata.normalize("NFKD", text) if not unicodedata.combining(c)
+    )
+
+
 def classify_location(raw: str) -> LocationClass:
-    text = (raw or "").strip()
+    text = _fold((raw or "").strip())
     if not text:
         return LocationClass.UNKNOWN_LOCATION
     canadian = bool(_CANADA.search(text))
