@@ -37,6 +37,7 @@ async def recompute(
     mode: str = Body(default="internship", embed=True),
     only_unscored: bool = Body(default=False, embed=True),
     limit: int | None = Body(default=None, embed=True),
+    offset: int = Body(default=0, embed=True),
     session: AsyncSession = Depends(get_session),
 ) -> dict:
     """Recompute v2 priority. Legacy v1 rows are left untouched.
@@ -61,7 +62,8 @@ async def recompute(
         )
     user_id = await _sole_user_id(session)
     result = await score_all_jobs(
-        session, user_id, mode=rmode, only_unscored=only_unscored, limit=limit
+        session, user_id, mode=rmode, only_unscored=only_unscored,
+        limit=limit, offset=offset
     )
     session.add(AuditLog(actor="user", action="recompute_scores",
                          entity_type="scoring", summary=str(result)))

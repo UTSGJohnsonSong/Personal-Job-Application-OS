@@ -353,6 +353,7 @@ async def score_all_jobs(
     batch_size: int = SCORING_BATCH,
     only_unscored: bool = False,
     limit: int | None = None,
+    offset: int = 0,
 ) -> dict:
     """Rescore live postings, a batch at a time.
 
@@ -378,10 +379,14 @@ async def score_all_jobs(
         )
     pending = list((await session.execute(stmt)).scalars().all())
     # `limit` caps one call so it finishes inside an HTTP request. Ten thousand
-    # postings take minutes; a caller that wants them all loops until
-    # `remaining` reaches zero and gets progress in between, rather than one
-    # request that a proxy will cut off halfway.
-    job_ids = pending[:limit] if limit else pending
+    # postings take minutes; a caller that wants them all loops and gets
+    # progress in between, rather than one request a proxy will cut off halfway.
+    #
+    # `offset` is what makes a FULL rescore possible. With only_unscored the
+    # window moves on its own, because scored rows drop out of `pending` — but a
+    # full pass re-reads the same list every call, so without an offset the
+    # caller would rescore the first slice forever.
+    job_ids = pending[offset : offset + limit] if limit else pending[offset:]
 
     # Read the candidate once, not once per posting.
     facts = await build_candidate_facts(session, user_id)
@@ -417,7 +422,8 @@ async def score_all_jobs(
         "scored": scored,
         "failed": failed,
         "total": len(job_ids),
-        "remaining": max(0, len(pending) - len(job_ids)),
+        "pending_total": len(pending),
+        "remaining": max(0, len(pending) - offset - len(job_ids)),
         "mode": mode.value,
         "formula_version": "v3",
     }

@@ -50,7 +50,11 @@ export async function recordPreference(formData: FormData) {
  * Because it only touches unscored rows, an interrupted run is resumed simply
  * by calling again — nothing is redone.
  */
-export async function scorePending(limit = 50): Promise<{
+export async function scorePending(
+  limit = 50,
+  onlyUnscored = true,
+  offset = 0,
+): Promise<{
   ok: boolean;
   scored: number;
   remaining: number;
@@ -64,7 +68,7 @@ export async function scorePending(limit = 50): Promise<{
       method: "POST",
       cache: "no-store",
       headers: apiHeaders(),
-      body: JSON.stringify({ only_unscored: true, limit }),
+      body: JSON.stringify({ only_unscored: onlyUnscored, limit, offset }),
     });
     if (!res.ok) {
       return {

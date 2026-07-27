@@ -53,7 +53,7 @@ export function BoardClient({
      every time, and the browser only ever saw "the specific message is omitted
      in production builds". Fifty finishes in a few seconds and fits under any
      of these limits; the loop makes the slice size invisible. */
-  async function runScoring() {
+  async function runScoring(onlyUnscored = true) {
     /* Adaptive slice. The size a hosted instance can absorb is not knowable
        from here — it depends on its memory, its request timeout and the
        latency to its database, none of which this page can see. So back off on
@@ -64,9 +64,14 @@ export function BoardClient({
     let slice = 50;
     let done = 0;
     let failures = 0;
+    /* Only a full rescore needs an offset. With onlyUnscored the window moves
+       by itself — a scored posting drops out of the pending list — but a full
+       pass re-reads the same list every call, so without this it would rescore
+       the first slice forever. */
+    let offset = 0;
     for (;;) {
       setScoring(done ? `Scored ${done}…` : "Starting…");
-      const r = await scorePending(slice);
+      const r = await scorePending(slice, onlyUnscored, offset);
       if (!r.ok) {
         if (slice > 5) {
           slice = Math.max(5, Math.floor(slice / 2));
@@ -84,6 +89,7 @@ export function BoardClient({
         return;
       }
       done += r.scored;
+      if (!onlyUnscored) offset += r.scored;
       if (r.remaining === 0 || r.scored === 0) break;
       // Recover the slice size once the instance is coping again.
       if (failures > 0 && slice < 50) slice = Math.min(50, slice * 2);
@@ -178,7 +184,7 @@ export function BoardClient({
             interrupted scoring pass leaves them that way and they cannot be ranked
             until it finishes.
           </div>
-          <button className="btn" onClick={runScoring} disabled={!!scoring}>
+          <button className="btn" onClick={() => runScoring(true)} disabled={!!scoring}>
             {scoring ?? "Score them now"}
           </button>
         </div>
@@ -226,6 +232,27 @@ export function BoardClient({
                 }
               />
             )}
+            {/* A stored eligibility verdict does not change when the rules do.
+                The location classifier was fixed after these rows were written,
+                so "Zürich, CH" is still sitting in them as REVIEW rather than
+                the FAIL it now resolves to — only a full pass rewrites that. */}
+            <button
+              className="tg"
+              disabled={!!scoring}
+              onClick={() => {
+                if (
+                  confirm(
+                    "Re-score every posting with the current rules?\n\n" +
+                      "Eligibility verdicts are stored, so a rules fix only " +
+                      "reaches rows that are scored again. This takes several " +
+                      "minutes and is safe to interrupt.",
+                  )
+                )
+                  runScoring(false);
+              }}
+            >
+              {scoring ?? "Re-score all"}
+            </button>
             <span className="count">
               {shown.length} shown
               {!showAllPerEmployer && hidden > 0 && (
