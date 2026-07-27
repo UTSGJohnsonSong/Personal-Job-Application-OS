@@ -392,6 +392,102 @@ def tier_view(companies: list[CompanyEntry]) -> list[dict]:
     return out
 
 
+async def global_queue(
+    session: AsyncSession,
+    user_id: str,
+    *,
+    limit: int = 100,
+    mode: RankingMode = RankingMode.INTERNSHIP,
+) -> list[dict]:
+    """View 2, straight from SQL: one queue across every tier, priority order.
+
+    The previous path went through `load_companies`, which reads every posting,
+    every score and every location, builds a CompanyEntry and a RoleEntry for
+    all of them, then flattens, sorts and takes the top N in Python. Returning
+    300 rows cost 9 seconds against the local database of ~11k postings — and
+    that is SQLite on the same machine; a hosted Postgres pays network latency
+    on top. The board issues this on every navigation, so it was most of the
+    wait before anything rendered.
+
+    The ordering and the FAIL exclusion are exactly what the old path applied,
+    only expressed where the database can use an index instead of after the
+    fact. Tier is carried for display and still does not participate — that is
+    the product rule in company/portfolio.py.
+    """
+    rows = (
+        await session.execute(
+            select(
+                ApplicationPriorityScore.job_id,
+                ApplicationPriorityScore.application_priority,
+                ApplicationPriorityScore.eligibility_gate,
+                ApplicationPriorityScore.role_band,
+                ApplicationPriorityScore.role_type,
+                ApplicationPriorityScore.role_strategic_value,
+                ApplicationPriorityScore.current_candidate_fit,
+                ApplicationPriorityScore.company_platform_value,
+                ApplicationPriorityScore.evidence_coverage,
+                ApplicationPriorityScore.recommendation,
+                ApplicationPriorityScore.company_tier_display,
+                Job.title,
+                Job.canonical_application_url,
+                Job.company_id,
+                Company.name,
+                Company.normalized_name,
+            )
+            .join(Job, Job.id == ApplicationPriorityScore.job_id)
+            .join(Company, Company.id == Job.company_id)
+            .where(
+                ApplicationPriorityScore.user_id == user_id,
+                ApplicationPriorityScore.ranking_mode == mode.value,
+                ApplicationPriorityScore.eligibility_gate != "FAIL",
+                Job.deleted_at.is_(None),
+            )
+            .order_by(ApplicationPriorityScore.application_priority.desc())
+            .limit(limit)
+        )
+    ).all()
+
+    # Locations only for the rows being returned, not for the whole table.
+    job_ids = [r[0] for r in rows]
+    raw_by_job: dict[str, list[str | None]] = {}
+    if job_ids:
+        for loc_job_id, loc_raw in (
+            await session.execute(
+                select(JobLocation.job_id, JobLocation.raw_text).where(
+                    JobLocation.job_id.in_(job_ids)
+                )
+            )
+        ).all():
+            raw_by_job.setdefault(loc_job_id, []).append(loc_raw)
+
+    out: list[dict] = []
+    for i, r in enumerate(rows):
+        # The registry is the authority on tier, as everywhere else.
+        profile = resolve(r[15]) or resolve(r[14])
+        out.append({
+            "global_rank": i + 1,
+            "company_id": r[13],
+            "company": r[14],
+            "company_tier": profile.personal_tier if profile else (r[10] or "D"),
+            "company_platform_value": round(r[7], 1),
+            "job_id": r[0],
+            "title": r[11],
+            "role_band": r[3],
+            "role_type": r[4],
+            "eligibility": r[2],
+            "application_priority": round(r[1], 1),
+            "role_strategic_value": round(r[5], 1),
+            "current_fit": round(r[6], 1),
+            "evidence_coverage": round(r[8], 3),
+            "recommendation": r[9] or "",
+            "is_official": bool(r[12]),
+            "apply_url": r[12],
+            "location": preferred_location(raw_by_job.get(r[0], [])) or "",
+            "other_locations": [],
+        })
+    return out
+
+
 def global_view(companies: list[CompanyEntry], limit: int = 100) -> list[dict]:
     """View 2 payload: one queue across every tier, ordered by priority only."""
     return [

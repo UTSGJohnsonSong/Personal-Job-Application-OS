@@ -26,7 +26,7 @@ from app.services.inbox import (
     _sole_user_id,
     company_stats,
     dashboard_metrics,
-    global_view,
+    global_queue,
     load_companies,
     rebuild_inbox,
     tier_view,
@@ -71,10 +71,11 @@ async def global_priority(
 ) -> dict:
     """View 2 — a single queue across all tiers, ordered by priority only."""
     user_id = await _uid(session)
-    companies = await load_companies(session, user_id)
+    # Straight from SQL. Going through load_companies read every posting in the
+    # database to return the top N, which the board pays for on every visit.
     return {
         "view": "global_priority",
-        "items": global_view(companies, limit=limit),
+        "items": await global_queue(session, user_id, limit=limit),
         "note": "Ordered purely by Application Priority (0-100). Not a match %.",
     }
 
