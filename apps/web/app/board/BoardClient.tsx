@@ -127,6 +127,17 @@ export function BoardClient({
     return m;
   }, [register]);
 
+  /* Counted from the ranked list actually on screen, not claimed from the
+     register. The register is compiled-in data with no live role counts; the
+     board reads it precisely because attaching those counts means scanning
+     every posting. So the number says "in this ranked list", and the labels
+     say that too rather than implying it is everything the employer has open. */
+  const rankedCount = useMemo(() => {
+    const m: Record<string, number> = {};
+    for (const r of roles) m[r.company] = (m[r.company] ?? 0) + 1;
+    return m;
+  }, [roles]);
+
   /* At most three roles from any one employer, unless asked otherwise.
      One company with an open board can hold hundreds of postings — a flat
      priority list then becomes that company's careers page. You are not going
@@ -346,15 +357,15 @@ export function BoardClient({
               (c) => c.tier === t && c.posture !== "worth_forcing",
             );
             if (!cs.length) return null;
-            const hiring = cs.filter((c) => c.open_roles > 0).length;
+            const hiring = cs.filter((c) => (rankedCount[c.name] ?? 0) > 0).length;
             return (
               <section className="grp" key={t}>
                 <h2>
                   Tier {t} <span>{cs.length}</span>
                 </h2>
                 <p className="grp-note">
-                  {hiring} hiring now ·{" "}
-                  {cs.reduce((a, c) => a + c.open_roles, 0)} open roles
+                  {hiring} with roles in the ranked list ·{" "}
+                  {cs.reduce((a, c) => a + (rankedCount[c.name] ?? 0), 0)} roles
                 </p>
                 {cs
                   .sort((a, b) => b.score - a.score)
@@ -501,8 +512,8 @@ function CompanyRow({
           {c.access.toFixed(0)}
         </span>
         <span className="pair">
-          <em>Open</em>
-          {c.open_roles}
+          <em>Ranked</em>
+          {mine.length}
         </span>
         <span className="chev" aria-hidden>
           {open ? "▲" : "▼"}
@@ -526,9 +537,9 @@ function CompanyRow({
             </ul>
           ) : (
             <p className="dim">
-              {c.open_roles > 0
-                ? `${c.open_roles} open, none in the top ${roles.length} by priority.`
-                : "Nothing open right now."}
+              Nothing from this employer reached the top {roles.length} by
+              priority. That is not the same as nothing being open — live counts
+              come from the pool page.
             </p>
           )}
         </div>

@@ -8,8 +8,14 @@
 // the thing app/company/portfolio.py exists to prevent.
 import { API, apiHeaders } from "@/lib/pool";
 
-async function get<T>(path: string): Promise<T> {
-  const res = await fetch(`${API}${path}`, { cache: "no-store", headers: apiHeaders() });
+async function get<T>(path: string, revalidate?: number): Promise<T> {
+  const res = await fetch(`${API}${path}`, {
+    headers: apiHeaders(),
+    // Postings and the queue must be current; the employer register is compiled
+    // into the API and only moves when someone edits profiles.py, so re-fetching
+    // it on every navigation buys nothing and costs a round trip.
+    ...(revalidate ? { next: { revalidate } } : { cache: "no-store" as const }),
+  });
   if (!res.ok) throw new Error(`${path} -> ${res.status}`);
   return res.json() as Promise<T>;
 }
@@ -79,11 +85,10 @@ export interface RoleDetail {
   evidence_coverage: { overall?: number; known?: string[]; unknown?: string[] };
 }
 
-interface PoolCard {
-  key: string; name: string; platform_tier: string; posture: Posture;
-  score: number; value: number; access: number; why: string;
-  open_roles: number; total_roles: number; canada_roles: number;
-  safety_net: boolean; source_status: string; careers_url: string | null;
+interface RegistryCard {
+  key: string; name: string; tier?: string; platform_tier: string;
+  posture: Posture; score?: number; priority_score?: number;
+  value_score: number; access_score: number; why?: string; safety_net?: boolean;
 }
 
 export const board = {
@@ -104,11 +109,41 @@ export const board = {
     return items.map((i) => i.job_id);
   },
 
-  /** Every company in the register, not only the ones hiring today. */
+  /**
+   * Every company in the register, not only the ones hiring today.
+   *
+   * Read from /registry/companies rather than /pool. Both return all 262, but
+   * /pool reaches that answer by scanning every posting in the database to
+   * attach live role counts — 1.63s against ~11k rows — and the board does not
+   * need those counts to draw a tier, a posture or a value/reach pair. The
+   * registry endpoint is compiled-in data and answers in 0.24s.
+   */
   register: async (): Promise<RegisterCompany[]> => {
-    const d = await get<{ groups: { tier: string; companies: PoolCard[] }[] }>("/pool");
+    const d = await get<{ groups: { tier: string; companies: RegistryCard[] }[] }>(
+      "/registry/companies",
+      300,
+    );
     return d.groups.flatMap((g) =>
-      g.companies.map((c) => ({ ...c, tier: g.tier }))
+      g.companies.map((c) => ({
+        key: c.key,
+        name: c.name,
+        tier: c.tier ?? g.tier,
+        platform_tier: c.platform_tier,
+        posture: c.posture,
+        score: c.score ?? c.priority_score ?? 0,
+        value: c.value_score,
+        access: c.access_score,
+        why: c.why ?? "",
+        safety_net: !!c.safety_net,
+        // Live counts belong to /pool. The employers view fills these from the
+        // ranked roles it already has, so nothing here claims a number it did
+        // not measure.
+        open_roles: 0,
+        total_roles: 0,
+        canada_roles: 0,
+        source_status: "",
+        careers_url: null,
+      })),
     );
   },
 
